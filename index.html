@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arena Partners | Command Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%23C9A84C'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-size='18' font-family='Georgia' fill='%230A0A0A' font-weight='bold'%3EA%3C/text%3E%3C/svg%3E">
+<style>
+/* ============================================================
+   CONFIGURATION
+   ============================================================ */
+:root {
+  --bg: #0a0a0a;
+  --bg-card: #111111;
+  --bg-elevated: #161616;
+  --gold: #c9a84c;
+  --gold-light: #e3c96e;
+  --gold-glow: rgba(201,168,76,0.12);
+  --cream: #f5f0e8;
+  --text: #d4cfc8;
+  --muted: #9a9590;
+  --border: rgba(201,168,76,0.12);
+  --green: #4caf50;
+  --red: #c44b3f;
+  --blue: #2962ff;
+  --orange: #ff9800;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  font-family: 'DM Sans', Arial, sans-serif;
+  background: var(--bg);
+  color: var(--cream);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+body::after {
+  content:'';position:fixed;inset:0;
+  background:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events:none;z-index:9999;
+}
+
+/* ============================================================
+   AUTH SCREEN
+   ============================================================ */
+#authScreen {
+  position:fixed;inset:0;background:var(--bg);z-index:10000;
+  display:flex;align-items:center;justify-content:center;
+}
+
+#authScreen .auth-box {
+  background:var(--bg-card);border:1px solid var(--border);border-radius:16px;
+  padding:48px 40px;max-width:400px;width:90%;text-align:center;
+}
+
+#authScreen h2 {
+  font-family:'Playfair Display',Georgia,serif;font-size:24px;margin-bottom:8px;
+}
+#authScreen p { font-size:13px;color:var(--muted);margin-bottom:24px; }
+
+#authScreen input {
+  width:100%;padding:14px 16px;background:var(--bg);border:1px solid var(--border);
+  border-radius:6px;color:var(--cream);font-family:'DM Sans',sans-serif;font-size:15px;
+  outline:none;text-align:center;margin-bottom:16px;
+}
+#authScreen input:focus { border-color:var(--gold); }
+
+#authScreen button {
+  width:100%;padding:14px;background:linear-gradient(135deg,var(--gold),var(--gold-light));
+  color:var(--bg);border:none;border-radius:6px;font-weight:700;font-size:14px;
+  letter-spacing:1px;text-transform:uppercase;cursor:pointer;
+}
+
+#authError { color:var(--red);font-size:12px;margin-top:8px;display:none; }
+
+/* ============================================================
+   HEADER
+   ============================================================ */
+.dash-header {
+  padding:16px 24px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;background:var(--bg);z-index:100;
+}
+
+.dash-logo {
+  font-family:'Playfair Display',Georgia,serif;font-size:18px;font-weight:700;
+  letter-spacing:2px;text-transform:uppercase;
+}
+.dash-logo span { color:var(--gold); }
+
+.dash-meta {
+  display:flex;align-items:center;gap:16px;font-size:12px;color:var(--muted);
+}
+
+.dash-refresh {
+  background:none;border:1px solid var(--border);border-radius:6px;
+  color:var(--gold);padding:6px 14px;font-size:11px;cursor:pointer;
+  font-family:'DM Sans',sans-serif;letter-spacing:0.5px;transition:all 0.2s;
+}
+.dash-refresh:hover { border-color:var(--gold);background:rgba(201,168,76,0.06); }
+
+.dash-logout {
+  background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;
+  font-family:'DM Sans',sans-serif;
+}
+.dash-logout:hover { color:var(--red); }
+
+/* ============================================================
+   LAYOUT
+   ============================================================ */
+.dash-content { max-width:1200px;margin:0 auto;padding:24px; }
+
+.section-title {
+  font-family:'Playfair Display',Georgia,serif;font-size:22px;font-weight:700;
+  margin-bottom:6px;
+}
+
+.section-subtitle {
+  font-size:13px;color:var(--muted);margin-bottom:20px;
+}
+
+.section { margin-bottom:48px; }
+
+/* ============================================================
+   METRIC CARDS
+   ============================================================ */
+.metric-grid {
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;
+}
+
+.metric-card {
+  background:var(--bg-card);border:1px solid var(--border);border-radius:10px;
+  padding:20px;transition:border-color 0.2s;position:relative;overflow:hidden;
+}
+.metric-card:hover { border-color:rgba(201,168,76,0.25); }
+
+.metric-label {
+  font-size:11px;color:var(--muted);letter-spacing:0.5px;text-transform:uppercase;
+  margin-bottom:8px;
+}
+
+.metric-value {
+  font-family:'Playfair Display',Georgia,serif;font-size:32px;font-weight:700;
+  color:var(--cream);line-height:1;margin-bottom:4px;
+}
+
+.metric-sub {
+  font-size:12px;color:var(--muted);
+}
+
+.metric-card .rate {
+  position:absolute;top:16px;right:16px;font-size:11px;font-weight:600;
+  padding:3px 8px;border-radius:100px;
+}
+.rate.good { background:rgba(76,175,80,0.12);color:var(--green); }
+.rate.warn { background:rgba(255,152,0,0.12);color:var(--orange); }
+.rate.bad { background:rgba(196,75,63,0.12);color:var(--red); }
+
+/* Skeleton */
+.skeleton {
+  background:linear-gradient(90deg,rgba(201,168,76,0.04) 25%,rgba(201,168,76,0.08) 50%,rgba(201,168,76,0.04) 75%);
+  background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:4px;
+}
+@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+.skeleton-value { width:80px;height:32px;margin-bottom:4px; }
+.skeleton-text { width:60px;height:12px; }
+
+/* ============================================================
+   FUNNEL VISUALIZATION
+   ============================================================ */
+.funnel-flow {
+  display:flex;align-items:center;gap:0;overflow-x:auto;padding:8px 0;
+}
+
+.funnel-stage {
+  background:var(--bg-card);border:1px solid var(--border);border-radius:10px;
+  padding:20px;text-align:center;min-width:140px;flex:1;
+  transition:border-color 0.2s;
+}
+.funnel-stage:hover { border-color:rgba(201,168,76,0.3); }
+
+.funnel-stage .fs-count {
+  font-family:'Playfair Display',Georgia,serif;font-size:28px;font-weight:700;
+  color:var(--cream);
+}
+
+.funnel-stage .fs-label {
+  font-size:11px;color:var(--muted);letter-spacing:0.5px;text-transform:uppercase;
+  margin-top:4px;
+}
+
+.funnel-arrow {
+  color:var(--gold);font-size:18px;padding:0 4px;flex-shrink:0;
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+}
+
+.funnel-arrow .fa-rate {
+  font-size:10px;font-weight:600;color:var(--gold);
+  font-family:'JetBrains Mono',monospace;
+}
+
+/* ============================================================
+   PIPELINE VISUAL
+   ============================================================ */
+.pipeline-bar {
+  display:flex;height:40px;border-radius:8px;overflow:hidden;margin-bottom:16px;
+}
+
+.pipeline-segment {
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:600;letter-spacing:0.5px;
+  transition:all 0.3s ease;cursor:default;position:relative;min-width:40px;
+}
+
+.pipeline-segment:hover { filter:brightness(1.2); }
+
+.pipeline-legend {
+  display:flex;flex-wrap:wrap;gap:16px;margin-bottom:20px;
+}
+
+.legend-item {
+  display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text);
+}
+
+.legend-dot {
+  width:10px;height:10px;border-radius:3px;flex-shrink:0;
+}
+
+/* ============================================================
+   CLIENT TABLE
+   ============================================================ */
+.client-table-wrap {
+  background:var(--bg-card);border:1px solid var(--border);border-radius:10px;
+  overflow:hidden;
+}
+
+.client-table {
+  width:100%;border-collapse:collapse;
+}
+
+.client-table th {
+  padding:12px 16px;text-align:left;font-size:11px;color:var(--muted);
+  letter-spacing:0.5px;text-transform:uppercase;border-bottom:1px solid var(--border);
+  background:var(--bg-elevated);font-weight:600;white-space:nowrap;
+}
+
+.client-table td {
+  padding:12px 16px;border-bottom:1px solid rgba(201,168,76,0.06);
+  font-size:13px;color:var(--text);vertical-align:middle;
+}
+
+.client-table tr:hover td { background:rgba(201,168,76,0.03); }
+.client-table tr { cursor:pointer; }
+
+.client-table .name-cell {
+  font-weight:600;color:var(--cream);
+}
+
+.stage-badge {
+  display:inline-block;padding:3px 10px;border-radius:100px;
+  font-size:10px;font-weight:600;letter-spacing:0.5px;white-space:nowrap;
+}
+.stage-badge.new-lead { background:rgba(41,98,255,0.12);color:#5c8aff; }
+.stage-badge.contacted { background:rgba(201,168,76,0.12);color:var(--gold); }
+.stage-badge.no-show { background:rgba(196,75,63,0.12);color:var(--red); }
+.stage-badge.proposal { background:rgba(255,152,0,0.12);color:var(--orange); }
+.stage-badge.closed { background:rgba(76,175,80,0.12);color:var(--green); }
+
+.status-dot {
+  display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;
+}
+.status-dot.green { background:var(--green); }
+.status-dot.gold { background:var(--gold); }
+.status-dot.red { background:var(--red); }
+.status-dot.gray { background:var(--muted); }
+
+/* Expanded row */
+.client-detail {
+  display:none;
+}
+.client-detail.active {
+  display:table-row;
+}
+.client-detail td {
+  padding:20px 24px;background:var(--bg-elevated);
+}
+
+.detail-grid {
+  display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;
+}
+
+.detail-item {
+  font-size:12px;
+}
+.detail-label { color:var(--muted);margin-bottom:2px;text-transform:uppercase;letter-spacing:0.5px;font-size:10px; }
+.detail-value { color:var(--cream);font-weight:600; }
+
+/* ============================================================
+   KPI GRID
+   ============================================================ */
+.kpi-grid {
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;
+}
+
+.kpi-card {
+  background:var(--bg-card);border:1px solid var(--border);border-radius:10px;
+  padding:20px;
+}
+
+.kpi-label {
+  font-size:11px;color:var(--muted);letter-spacing:0.5px;text-transform:uppercase;
+  margin-bottom:8px;
+}
+
+.kpi-value {
+  font-family:'Playfair Display',Georgia,serif;font-size:24px;font-weight:700;
+  color:var(--cream);
+}
+
+.kpi-note { font-size:11px;color:var(--muted);margin-top:4px; }
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 768px) {
+  .metric-grid { grid-template-columns:repeat(2,1fr); }
+  .funnel-flow { flex-wrap:wrap; }
+  .funnel-arrow { transform:rotate(90deg); }
+  .detail-grid { grid-template-columns:1fr 1fr; }
+  .client-table { font-size:12px; }
+  .client-table th, .client-table td { padding:10px 10px; }
+  .kpi-grid { grid-template-columns:1fr 1fr; }
+  .pipeline-bar { height:32px; }
+  .dash-content { padding:16px; }
+}
+
+@media (max-width: 480px) {
+  .metric-grid { grid-template-columns:1fr 1fr; }
+  .metric-value { font-size:24px; }
+  .detail-grid { grid-template-columns:1fr; }
+  .kpi-grid { grid-template-columns:1fr; }
+}
+</style>
+</head>
+<body>
+
+<script>
+// ============================================================
+// CONFIGURATION
+// ============================================================
+const DASH_PASSWORD = 'arena2026';
+const GHL_API = 'https://services.leadconnectorhq.com';
+const GHL_TOKEN = 'pit-8db4722a-0d8f-41c0-8cc0-1d17de5bff3d';
+const GHL_VERSION = '2021-07-28';
+const LOCATION_ID = 'LSvdgiiT7ManCRx9CCwE';
+const CALENDAR_ID = 'ZMY7F82g3SOZnYBn3pod';
+const PIPELINE_ID = 'PdlZRdFi8hty46vcVyx8';
+
+const STAGES = {
+  'a72f7c97-f805-4f37-bf8c-8d65816a6870': { name: 'New Lead', color: '#5c8aff', class: 'new-lead' },
+  '941c12a7-abf9-4c7d-9f72-c9c2fedcaa78': { name: 'Contacted', color: '#c9a84c', class: 'contacted' },
+  '0b1fe375-9066-42e0-b971-9d052200438c': { name: 'No Show', color: '#c44b3f', class: 'no-show' },
+  '162dba68-982d-4cb7-994a-a3945fe0245d': { name: 'Proposal Sent', color: '#ff9800', class: 'proposal' },
+  '1232fcee-0bc0-48c5-90dc-4a4676843ea9': { name: 'Closed', color: '#4caf50', class: 'closed' }
+};
+
+const STAGE_ORDER = [
+  'a72f7c97-f805-4f37-bf8c-8d65816a6870',
+  '941c12a7-abf9-4c7d-9f72-c9c2fedcaa78',
+  '0b1fe375-9066-42e0-b971-9d052200438c',
+  '162dba68-982d-4cb7-994a-a3945fe0245d',
+  '1232fcee-0bc0-48c5-90dc-4a4676843ea9'
+];
+
+// Custom field IDs
+const CF_NDA_STATUS = 'ftQiQO9v7xWoRf7SE6ix';
+const CF_COMPANY_INFO_STATUS = '34Hw5yMzDL7XoXe4z2zK';
+const CF_MAX_VIDEO_WATCH = 'WTte3IGpNaX0cxVxzAqB';
+const CF_VSL_LEAD_SCORE = 'eCWYLWe2vmd6t7J7fM15';
+const CF_VIDEO_SEGMENT = 'IAsnpV5GUycawVqAPCnI';
+
+const REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
+</script>
+
+<!-- AUTH SCREEN -->
+<div id="authScreen">
+  <div class="auth-box">
+    <h2 style="font-family:'Playfair Display',Georgia,serif;">Arena <span style="color:var(--gold);">Command Center</span></h2>
+    <p>Enter your access code to continue.</p>
+    <input type="password" id="authPassword" placeholder="Access Code" onkeydown="if(event.key==='Enter')doAuth()" autofocus />
+    <button onclick="doAuth()">Access Dashboard</button>
+    <div id="authError">Invalid access code. Try again.</div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard" style="display:none;">
+
+  <!-- HEADER -->
+  <header class="dash-header">
+    <div class="dash-logo">Arena <span>Command Center</span></div>
+    <div class="dash-meta">
+      <span id="lastUpdated">Loading...</span>
+      <button class="dash-refresh" onclick="loadAllData()">Refresh</button>
+      <button class="dash-logout" onclick="logout()">Logout</button>
+    </div>
+  </header>
+
+  <div class="dash-content">
+
+    <!-- SECTION 1: FUNNEL METRICS -->
+    <div class="section">
+      <h2 class="section-title">Funnel Performance</h2>
+      <p class="section-subtitle">Full pipeline from visitor to close. Live data from GHL.</p>
+      
+      <div class="funnel-flow" id="funnelFlow">
+        <div class="funnel-stage"><div class="fs-count skeleton skeleton-value" id="f-leads">&nbsp;</div><div class="fs-label">VSL Leads</div></div>
+        <div class="funnel-arrow">&rarr;<div class="fa-rate" id="f-rate-1">-</div></div>
+        <div class="funnel-stage"><div class="fs-count skeleton skeleton-value" id="f-views">&nbsp;</div><div class="fs-label">Training Views</div></div>
+        <div class="funnel-arrow">&rarr;<div class="fa-rate" id="f-rate-2">-</div></div>
+        <div class="funnel-stage"><div class="fs-count skeleton skeleton-value" id="f-booked">&nbsp;</div><div class="fs-label">Calls Booked</div></div>
+        <div class="funnel-arrow">&rarr;<div class="fa-rate" id="f-rate-3">-</div></div>
+        <div class="funnel-stage"><div class="fs-count skeleton skeleton-value" id="f-showed">&nbsp;</div><div class="fs-label">Showed</div></div>
+        <div class="funnel-arrow">&rarr;<div class="fa-rate" id="f-rate-4">-</div></div>
+        <div class="funnel-stage"><div class="fs-count skeleton skeleton-value" id="f-closed">&nbsp;</div><div class="fs-label">Closed</div></div>
+      </div>
+
+      <h3 style="font-size:14px;color:var(--muted);margin:24px 0 12px;letter-spacing:0.5px;">WATCH DEPTH BREAKDOWN</h3>
+      <div class="metric-grid" id="watchDepth">
+        <div class="metric-card"><div class="metric-label">0 - 25%</div><div class="metric-value skeleton skeleton-value" id="w-25">&nbsp;</div><div class="metric-sub">Dropped early</div></div>
+        <div class="metric-card"><div class="metric-label">25 - 50%</div><div class="metric-value skeleton skeleton-value" id="w-50">&nbsp;</div><div class="metric-sub">Moderate interest</div></div>
+        <div class="metric-card"><div class="metric-label">50 - 75%</div><div class="metric-value skeleton skeleton-value" id="w-75">&nbsp;</div><div class="metric-sub">Strong interest</div></div>
+        <div class="metric-card"><div class="metric-label">75 - 100%</div><div class="metric-value skeleton skeleton-value" id="w-100">&nbsp;</div><div class="metric-sub">Full watch</div></div>
+      </div>
+    </div>
+
+    <!-- SECTION 2: PIPELINE -->
+    <div class="section">
+      <h2 class="section-title">Pipeline & Closing</h2>
+      <p class="section-subtitle">Opportunity stages with conversion rates.</p>
+      
+      <div class="pipeline-bar" id="pipelineBar"></div>
+      <div class="pipeline-legend" id="pipelineLegend"></div>
+
+      <div class="metric-grid" id="pipelineMetrics">
+        <div class="metric-card"><div class="metric-label">New Leads</div><div class="metric-value skeleton skeleton-value" id="p-new">&nbsp;</div></div>
+        <div class="metric-card"><div class="metric-label">Contacted</div><div class="metric-value skeleton skeleton-value" id="p-contacted">&nbsp;</div></div>
+        <div class="metric-card"><div class="metric-label">No Show</div><div class="metric-value skeleton skeleton-value" id="p-noshow">&nbsp;</div></div>
+        <div class="metric-card"><div class="metric-label">Proposal Sent</div><div class="metric-value skeleton skeleton-value" id="p-proposal">&nbsp;</div></div>
+        <div class="metric-card"><div class="metric-label">Closed</div><div class="metric-value skeleton skeleton-value" id="p-closed">&nbsp;</div></div>
+        <div class="metric-card"><div class="metric-label">Closing Ratio</div><div class="metric-value skeleton skeleton-value" id="p-ratio">&nbsp;</div><div class="metric-sub" id="p-ratio-sub"></div></div>
+      </div>
+    </div>
+
+    <!-- SECTION 3: CLIENT DASHBOARD -->
+    <div class="section">
+      <h2 class="section-title">Client Intelligence</h2>
+      <p class="section-subtitle">Click any row for full contact details.</p>
+      
+      <div class="client-table-wrap">
+        <table class="client-table" id="clientTable">
+          <thead>
+            <tr>
+              <th>Contact</th>
+              <th>Stage</th>
+              <th>NDA</th>
+              <th>Company Info</th>
+              <th>Video %</th>
+              <th>Assessment</th>
+              <th>Last Activity</th>
+            </tr>
+          </thead>
+          <tbody id="clientTableBody">
+            <tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted);">Loading client data...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SECTION 4: KPIs -->
+    <div class="section">
+      <h2 class="section-title">Additional KPIs</h2>
+      <p class="section-subtitle">Derived metrics and performance indicators.</p>
+      
+      <div class="kpi-grid" id="kpiGrid">
+        <div class="kpi-card"><div class="kpi-label">Total Contacts</div><div class="kpi-value skeleton skeleton-value" id="kpi-total">&nbsp;</div></div>
+        <div class="kpi-card"><div class="kpi-label">Show Rate</div><div class="kpi-value skeleton skeleton-value" id="kpi-showrate">&nbsp;</div><div class="kpi-note" id="kpi-showrate-note"></div></div>
+        <div class="kpi-card"><div class="kpi-label">Total Appointments</div><div class="kpi-value skeleton skeleton-value" id="kpi-appts">&nbsp;</div><div class="kpi-note" id="kpi-appts-note"></div></div>
+        <div class="kpi-card"><div class="kpi-label">NDAs Signed</div><div class="kpi-value skeleton skeleton-value" id="kpi-nda">&nbsp;</div></div>
+        <div class="kpi-card"><div class="kpi-label">Company Info Complete</div><div class="kpi-value skeleton skeleton-value" id="kpi-info">&nbsp;</div></div>
+        <div class="kpi-card"><div class="kpi-label">Assessments Completed</div><div class="kpi-value skeleton skeleton-value" id="kpi-assess">&nbsp;</div></div>
+        <div class="kpi-card"><div class="kpi-label">Avg Video Watch %</div><div class="kpi-value skeleton skeleton-value" id="kpi-avgwatch">&nbsp;</div></div>
+        <div class="kpi-card"><div class="kpi-label">No-Shows Rebooked</div><div class="kpi-value skeleton skeleton-value" id="kpi-rebooked">&nbsp;</div><div class="kpi-note" id="kpi-rebooked-note"></div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ============================================================
+// AUTH
+// ============================================================
+function doAuth() {
+  var pw = document.getElementById('authPassword').value;
+  if (pw === DASH_PASSWORD) {
+    localStorage.setItem('arena_dash_auth', 'true');
+    showDashboard();
+  } else {
+    document.getElementById('authError').style.display = 'block';
+  }
+}
+
+function logout() {
+  localStorage.removeItem('arena_dash_auth');
+  location.reload();
+}
+
+function showDashboard() {
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+  loadAllData();
+}
+
+// Check auth on load
+if (localStorage.getItem('arena_dash_auth') === 'true') {
+  showDashboard();
+}
+
+// ============================================================
+// GHL API HELPER
+// ============================================================
+async function ghl(path) {
+  try {
+    var resp = await fetch(GHL_API + path, {
+      headers: {
+        'Authorization': 'Bearer ' + GHL_TOKEN,
+        'Version': GHL_VERSION,
+        'Accept': 'application/json'
+      }
+    });
+    if (!resp.ok) {
+      console.error('GHL error:', resp.status, path);
+      return {};
+    }
+    return await resp.json();
+  } catch (err) {
+    console.error('GHL fetch error:', err);
+    return {};
+  }
+}
+
+// ============================================================
+// DATA LOADING
+// ============================================================
+var allContacts = [];
+var allOpportunities = [];
+var allAppointments = [];
+
+async function loadAllData() {
+  document.getElementById('lastUpdated').textContent = 'Refreshing...';
+
+  try {
+    // Load data in parallel
+    var [contacts, opportunities, appointments] = await Promise.all([
+      loadAllContacts(),
+      loadOpportunities(),
+      loadAppointments()
+    ]);
+
+    allContacts = contacts;
+    allOpportunities = opportunities;
+    allAppointments = appointments;
+
+    // Render everything
+    renderFunnel();
+    renderPipeline();
+    renderClientTable();
+    renderKPIs();
+
+    var now = new Date();
+    document.getElementById('lastUpdated').textContent = 'Updated ' + now.toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit', timeZone:'America/Chicago'}) + ' CT';
+  } catch (err) {
+    console.error('Data load error:', err);
+    document.getElementById('lastUpdated').textContent = 'Error loading data';
+  }
+}
+
+async function loadAllContacts() {
+  var contacts = [];
+  var page = 1;
+  var hasMore = true;
+
+  while (hasMore) {
+    var data = await ghl('/contacts/?locationId=' + LOCATION_ID + '&limit=100&page=' + page);
+    var batch = data.contacts || [];
+    contacts = contacts.concat(batch);
+    
+    if (batch.length < 100 || contacts.length >= (data.meta?.total || 0)) {
+      hasMore = false;
+    }
+    page++;
+
+    // Safety: max 20 pages
+    if (page > 20) break;
+  }
+
+  return contacts;
+}
+
+async function loadOpportunities() {
+  var allOpps = [];
+  
+  for (var i = 0; i < STAGE_ORDER.length; i++) {
+    var stageId = STAGE_ORDER[i];
+    var data = await ghl('/opportunities/search?location_id=' + LOCATION_ID + '&pipeline_id=' + PIPELINE_ID + '&pipeline_stage_id=' + stageId + '&limit=100');
+    var opps = data.opportunities || [];
+    opps.forEach(function(o) { o._stageId = stageId; });
+    allOpps = allOpps.concat(opps);
+  }
+
+  return allOpps;
+}
+
+async function loadAppointments() {
+  var now = new Date();
+  var start = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString();
+  var end = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
+  
+  var data = await ghl('/calendars/events?locationId=' + LOCATION_ID + '&calendarId=' + CALENDAR_ID + '&startTime=' + start + '&endTime=' + end);
+  return data.events || [];
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+function getCustomField(contact, fieldId) {
+  var fields = contact.customFields || [];
+  for (var i = 0; i < fields.length; i++) {
+    if (fields[i].id === fieldId) return fields[i].value || '';
+  }
+  return '';
+}
+
+function hasTag(contact, tag) {
+  return (contact.tags || []).indexOf(tag) !== -1;
+}
+
+function countByTag(tag) {
+  return allContacts.filter(function(c) { return hasTag(c, tag); }).length;
+}
+
+function convRate(a, b) {
+  if (!b || b === 0) return '0%';
+  return Math.round((a / b) * 100) + '%';
+}
+
+function rateClass(pct) {
+  if (pct >= 50) return 'good';
+  if (pct >= 25) return 'warn';
+  return 'bad';
+}
+
+// ============================================================
+// RENDER: FUNNEL
+// ============================================================
+function renderFunnel() {
+  var leads = countByTag('vsl-lead');
+  var w25 = countByTag('vsl-watched-25');
+  var w50 = countByTag('vsl-watched-50');
+  var w75 = countByTag('vsl-watched-75');
+  var w100 = countByTag('vsl-watched-100');
+  var totalWatched = allContacts.filter(function(c) {
+    return hasTag(c,'vsl-watched-25') || hasTag(c,'vsl-watched-50') || hasTag(c,'vsl-watched-75') || hasTag(c,'vsl-watched-100');
+  }).length;
+
+  var booked = allAppointments.length;
+  var showed = allAppointments.filter(function(a) {
+    return a.appointmentStatus === 'confirmed' || a.appointmentStatus === 'showed';
+  }).length;
+
+  var closedCount = 0;
+  allOpportunities.forEach(function(o) {
+    if (o._stageId === '1232fcee-0bc0-48c5-90dc-4a4676843ea9') closedCount++;
+  });
+
+  setText('f-leads', leads);
+  setText('f-views', totalWatched);
+  setText('f-booked', booked);
+  setText('f-showed', showed);
+  setText('f-closed', closedCount);
+
+  setText('f-rate-1', convRate(totalWatched, leads));
+  setText('f-rate-2', convRate(booked, totalWatched));
+  setText('f-rate-3', convRate(showed, booked));
+  setText('f-rate-4', convRate(closedCount, showed));
+
+  // Watch depth - use "pure" counts (only highest tag per contact)
+  setText('w-25', w25);
+  setText('w-50', w50);
+  setText('w-75', w75);
+  setText('w-100', w100);
+}
+
+function setText(id, val) {
+  var el = document.getElementById(id);
+  if (el) {
+    el.textContent = val;
+    el.className = el.className.replace(/skeleton[^\s]*/g, '').trim();
+  }
+}
+
+// ============================================================
+// RENDER: PIPELINE
+// ============================================================
+function renderPipeline() {
+  var counts = {};
+  var total = 0;
+
+  STAGE_ORDER.forEach(function(sid) {
+    counts[sid] = 0;
+  });
+
+  allOpportunities.forEach(function(o) {
+    if (counts[o._stageId] !== undefined) {
+      counts[o._stageId]++;
+      total++;
+    }
+  });
+
+  // Pipeline bar
+  var barHtml = '';
+  var legendHtml = '';
+  STAGE_ORDER.forEach(function(sid) {
+    var info = STAGES[sid];
+    var pct = total > 0 ? (counts[sid] / total * 100) : 0;
+    barHtml += '<div class="pipeline-segment" style="width:' + Math.max(pct, 5) + '%;background:' + info.color + ';color:#0a0a0a;">' + counts[sid] + '</div>';
+    legendHtml += '<div class="legend-item"><div class="legend-dot" style="background:' + info.color + ';"></div>' + info.name + ' (' + counts[sid] + ')</div>';
+  });
+
+  document.getElementById('pipelineBar').innerHTML = barHtml;
+  document.getElementById('pipelineLegend').innerHTML = legendHtml;
+
+  // Metric cards
+  setText('p-new', counts[STAGE_ORDER[0]]);
+  setText('p-contacted', counts[STAGE_ORDER[1]]);
+  setText('p-noshow', counts[STAGE_ORDER[2]]);
+  setText('p-proposal', counts[STAGE_ORDER[3]]);
+  setText('p-closed', counts[STAGE_ORDER[4]]);
+
+  var closedCount = counts[STAGE_ORDER[4]];
+  var ratio = total > 0 ? Math.round((closedCount / total) * 100) : 0;
+  setText('p-ratio', ratio + '%');
+  document.getElementById('p-ratio-sub').textContent = closedCount + ' of ' + total + ' total';
+}
+
+// ============================================================
+// RENDER: CLIENT TABLE
+// ============================================================
+function renderClientTable() {
+  var tbody = document.getElementById('clientTableBody');
+
+  // Build contact-to-opportunity map
+  var contactOppMap = {};
+  allOpportunities.forEach(function(o) {
+    var cid = (o.contact && o.contact.id) || o.contactId || '';
+    if (cid) contactOppMap[cid] = o;
+  });
+
+  // Get contacts that have opportunities
+  var clientRows = [];
+  allContacts.forEach(function(c) {
+    var opp = contactOppMap[c.id];
+    if (!opp) return;
+
+    var stageId = opp._stageId || '';
+    var stageInfo = STAGES[stageId] || { name: 'Unknown', class: '' };
+
+    var ndaStatus = getCustomField(c, CF_NDA_STATUS) || 'Pending';
+    var infoStatus = getCustomField(c, CF_COMPANY_INFO_STATUS) || 'Pending';
+    var videoWatch = getCustomField(c, CF_MAX_VIDEO_WATCH) || '';
+    var assessDone = hasTag(c, 'assessment-complete');
+
+    var lastActivity = c.dateUpdated || c.dateAdded || '';
+    var lastDate = lastActivity ? new Date(lastActivity) : null;
+    var lastStr = lastDate ? lastDate.toLocaleDateString('en-US', {month:'short', day:'numeric'}) : '-';
+
+    clientRows.push({
+      contact: c,
+      opp: opp,
+      stageId: stageId,
+      stageName: stageInfo.name,
+      stageClass: stageInfo.class,
+      ndaStatus: ndaStatus,
+      infoStatus: infoStatus,
+      videoWatch: videoWatch,
+      assessDone: assessDone,
+      lastStr: lastStr,
+      lastDate: lastDate,
+      name: (c.firstName || '') + ' ' + (c.lastName || ''),
+      company: c.companyName || '-'
+    });
+  });
+
+  // Sort by last activity (most recent first)
+  clientRows.sort(function(a, b) {
+    if (!a.lastDate) return 1;
+    if (!b.lastDate) return -1;
+    return b.lastDate - a.lastDate;
+  });
+
+  if (clientRows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted);">No pipeline contacts found.</td></tr>';
+    return;
+  }
+
+  var html = '';
+  clientRows.forEach(function(row, idx) {
+    var ndaDot = row.ndaStatus === 'Signed' ? 'green' : row.ndaStatus === 'Sent' ? 'gold' : 'gray';
+    var infoDot = row.infoStatus === 'Complete' ? 'green' : row.infoStatus === 'Sent' || row.infoStatus === 'Partial' ? 'gold' : 'gray';
+
+    html += '<tr onclick="toggleDetail(' + idx + ')">' +
+      '<td class="name-cell">' + row.name + '<br><span style="font-size:11px;color:var(--muted);font-weight:400;">' + row.company + '</span></td>' +
+      '<td><span class="stage-badge ' + row.stageClass + '">' + row.stageName + '</span></td>' +
+      '<td><span class="status-dot ' + ndaDot + '"></span>' + row.ndaStatus + '</td>' +
+      '<td><span class="status-dot ' + infoDot + '"></span>' + row.infoStatus + '</td>' +
+      '<td>' + (row.videoWatch ? row.videoWatch + '%' : '-') + '</td>' +
+      '<td>' + (row.assessDone ? '<span style="color:var(--green);">Yes</span>' : '<span style="color:var(--muted);">No</span>') + '</td>' +
+      '<td>' + row.lastStr + '</td>' +
+      '</tr>';
+
+    // Detail row
+    var c = row.contact;
+    html += '<tr class="client-detail" id="detail-' + idx + '"><td colspan="7">' +
+      '<div class="detail-grid">' +
+      '<div class="detail-item"><div class="detail-label">Email</div><div class="detail-value">' + (c.email || '-') + '</div></div>' +
+      '<div class="detail-item"><div class="detail-label">Phone</div><div class="detail-value">' + (c.phone || '-') + '</div></div>' +
+      '<div class="detail-item"><div class="detail-label">Source</div><div class="detail-value">' + (c.source || '-') + '</div></div>' +
+      '<div class="detail-item"><div class="detail-label">VSL Lead Score</div><div class="detail-value">' + (getCustomField(c, CF_VSL_LEAD_SCORE) || '-') + '</div></div>' +
+      '<div class="detail-item"><div class="detail-label">Video Segment</div><div class="detail-value">' + (getCustomField(c, CF_VIDEO_SEGMENT) || '-') + '</div></div>' +
+      '<div class="detail-item"><div class="detail-label">Tags</div><div class="detail-value" style="font-size:11px;">' + (c.tags || []).join(', ') + '</div></div>' +
+      '<div class="detail-item"><div class="detail-label">Created</div><div class="detail-value">' + (c.dateAdded ? new Date(c.dateAdded).toLocaleDateString() : '-') + '</div></div>' +
+      '<div class="detail-item"><div class="detail-label">Opportunity</div><div class="detail-value">' + (row.opp.name || '-') + '</div></div>' +
+      '<div class="detail-item"><div class="detail-label">GHL Link</div><div class="detail-value"><a href="https://app.gohighlevel.com/v2/location/' + LOCATION_ID + '/contacts/' + c.id + '" target="_blank" style="color:var(--gold);text-decoration:none;">Open in GHL &rarr;</a></div></div>' +
+      '</div></td></tr>';
+  });
+
+  tbody.innerHTML = html;
+}
+
+function toggleDetail(idx) {
+  var row = document.getElementById('detail-' + idx);
+  if (row) {
+    row.classList.toggle('active');
+  }
+}
+
+// ============================================================
+// RENDER: KPIs
+// ============================================================
+function renderKPIs() {
+  setText('kpi-total', allContacts.length);
+
+  // Show rate
+  var totalBooked = allAppointments.length;
+  var showed = allAppointments.filter(function(a) {
+    return a.appointmentStatus === 'confirmed' || a.appointmentStatus === 'showed';
+  }).length;
+  var noShowed = allAppointments.filter(function(a) {
+    return a.appointmentStatus === 'no_show' || a.appointmentStatus === 'cancelled';
+  }).length;
+  var showRate = totalBooked > 0 ? Math.round((showed / totalBooked) * 100) : 0;
+  setText('kpi-showrate', showRate + '%');
+  document.getElementById('kpi-showrate-note').textContent = showed + ' showed of ' + totalBooked + ' booked';
+
+  setText('kpi-appts', totalBooked);
+  document.getElementById('kpi-appts-note').textContent = showed + ' confirmed, ' + noShowed + ' no-shows';
+
+  // NDA signed count
+  var ndaSigned = allContacts.filter(function(c) {
+    return getCustomField(c, CF_NDA_STATUS) === 'Signed' || hasTag(c, 'nda-signed');
+  }).length;
+  setText('kpi-nda', ndaSigned);
+
+  // Company info complete
+  var infoComplete = allContacts.filter(function(c) {
+    return getCustomField(c, CF_COMPANY_INFO_STATUS) === 'Complete' || hasTag(c, 'company-info-submitted');
+  }).length;
+  setText('kpi-info', infoComplete);
+
+  // Assessment complete
+  var assessComplete = countByTag('assessment-complete');
+  setText('kpi-assess', assessComplete);
+
+  // Average video watch %
+  var watchValues = [];
+  allContacts.forEach(function(c) {
+    var v = getCustomField(c, CF_MAX_VIDEO_WATCH);
+    if (v && !isNaN(parseFloat(v))) {
+      watchValues.push(parseFloat(v));
+    }
+  });
+  var avgWatch = watchValues.length > 0 ? Math.round(watchValues.reduce(function(a,b){return a+b;}, 0) / watchValues.length) : 0;
+  setText('kpi-avgwatch', avgWatch + '%');
+
+  // No-shows rebooked (contacts with both "noshow" tag and a confirmed appointment after)
+  var noShowContacts = allContacts.filter(function(c) { return hasTag(c, 'noshow'); });
+  var rebooked = 0;
+  noShowContacts.forEach(function(c) {
+    var hasRebook = allAppointments.some(function(a) {
+      return a.contactId === c.id && (a.appointmentStatus === 'confirmed' || a.appointmentStatus === 'showed');
+    });
+    if (hasRebook) rebooked++;
+  });
+  setText('kpi-rebooked', rebooked);
+  document.getElementById('kpi-rebooked-note').textContent = rebooked + ' of ' + noShowContacts.length + ' no-shows rebooked';
+}
+
+// ============================================================
+// AUTO REFRESH
+// ============================================================
+setInterval(function() {
+  if (localStorage.getItem('arena_dash_auth') === 'true') {
+    loadAllData();
+  }
+}, REFRESH_INTERVAL);
+</script>
+
+</body>
+</html>

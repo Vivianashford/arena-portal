@@ -1,0 +1,1431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Arena Partners | Secure Client Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%23C9A84C'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-size='18' font-family='Georgia' fill='%230A0A0A' font-weight='bold'%3EA%3C/text%3E%3C/svg%3E">
+<style>
+/* ============================================================
+   ARENA PORTAL - CONFIGURATION
+   ============================================================ */
+
+:root {
+  --bg: #0a0a0a;
+  --bg-card: #111111;
+  --bg-elevated: #161616;
+  --bg-input: #0d0d0d;
+  --gold: #c9a84c;
+  --gold-light: #e3c96e;
+  --gold-dark: #a8872e;
+  --gold-glow: rgba(201,168,76,0.12);
+  --cream: #f5f0e8;
+  --text: #d4cfc8;
+  --muted: #9a9590;
+  --border: rgba(201,168,76,0.12);
+  --border-strong: rgba(201,168,76,0.25);
+  --green: #4caf50;
+  --red: #c44b3f;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  font-family: 'DM Sans', Arial, sans-serif;
+  background: var(--bg);
+  color: var(--cream);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+/* Grain overlay */
+body::after {
+  content:'';
+  position:fixed; inset:0;
+  background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events:none; z-index:9999;
+}
+
+/* ============================================================
+   HEADER
+   ============================================================ */
+
+.portal-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.portal-logo {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--cream);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+.portal-logo span { color: var(--gold); }
+
+.portal-security {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.5px;
+}
+.portal-security svg { width:14px; height:14px; stroke:var(--gold); fill:none; }
+
+/* ============================================================
+   SECURITY BANNER
+   ============================================================ */
+
+.security-banner {
+  background: linear-gradient(90deg, rgba(201,168,76,0.06), rgba(201,168,76,0.12), rgba(201,168,76,0.06));
+  border-bottom: 1px solid var(--border);
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.security-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.5px;
+}
+.security-badge svg { width:14px; height:14px; stroke:var(--gold); fill:none; }
+.security-badge strong { color: var(--cream); font-weight: 600; }
+
+/* ============================================================
+   PROGRESS BAR
+   ============================================================ */
+
+.progress-container {
+  max-width: 800px;
+  margin: 40px auto 0;
+  padding: 0 24px;
+}
+
+.progress-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+}
+
+.progress-bar::before {
+  content:'';
+  position: absolute;
+  top: 16px;
+  left: 24px;
+  right: 24px;
+  height: 2px;
+  background: rgba(201,168,76,0.15);
+}
+
+.progress-fill {
+  position: absolute;
+  top: 16px;
+  left: 24px;
+  height: 2px;
+  background: var(--gold);
+  transition: width 0.5s ease;
+}
+
+.step-dot {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--bg-card);
+  border: 2px solid rgba(201,168,76,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  position: relative;
+  z-index: 2;
+  transition: all 0.3s ease;
+  cursor: default;
+}
+
+.step-dot.active {
+  border-color: var(--gold);
+  background: var(--gold);
+  color: var(--bg);
+  box-shadow: 0 0 20px rgba(201,168,76,0.3);
+}
+
+.step-dot.completed {
+  border-color: var(--gold);
+  background: var(--gold);
+  color: var(--bg);
+}
+
+.step-dot.completed::after {
+  content: '\2713';
+  font-size: 14px;
+}
+
+.step-dot.completed span { display: none; }
+
+.step-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+
+.step-label {
+  font-size: 10px;
+  color: var(--muted);
+  text-align: center;
+  width: 34px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.step-label.active { color: var(--gold); font-weight: 600; }
+
+/* ============================================================
+   MAIN CONTENT
+   ============================================================ */
+
+.portal-main {
+  max-width: 720px;
+  margin: 40px auto 80px;
+  padding: 0 24px;
+}
+
+.step-section {
+  display: none;
+  animation: fadeIn 0.4s ease;
+}
+.step-section.active { display: block; }
+
+@keyframes fadeIn {
+  from { opacity:0; transform:translateY(12px); }
+  to { opacity:1; transform:translateY(0); }
+}
+
+.step-title {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: var(--cream);
+}
+
+.step-subtitle {
+  font-size: 15px;
+  color: var(--muted);
+  line-height: 1.6;
+  margin-bottom: 32px;
+}
+
+/* ============================================================
+   FORM FIELDS
+   ============================================================ */
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.form-row.full { grid-template-columns: 1fr; }
+
+.form-group { margin-bottom: 0; }
+
+.form-group label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 14px 16px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--cream);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.form-group input:focus { border-color: var(--gold); }
+.form-group input::placeholder { color: rgba(154,149,144,0.5); }
+.form-group input:read-only { opacity: 0.7; cursor: default; }
+
+/* ============================================================
+   FILE UPLOAD ZONES
+   ============================================================ */
+
+.upload-category {
+  margin-bottom: 24px;
+}
+
+.upload-category-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.upload-category-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: rgba(201,168,76,0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+.upload-category-title {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--cream);
+}
+
+.upload-category-desc {
+  font-size: 13px;
+  color: var(--muted);
+  margin-left: 46px;
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+
+.drop-zone {
+  border: 2px dashed rgba(201,168,76,0.2);
+  border-radius: 10px;
+  padding: 32px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: rgba(201,168,76,0.02);
+  position: relative;
+}
+
+.drop-zone:hover,
+.drop-zone.dragover {
+  border-color: var(--gold);
+  background: rgba(201,168,76,0.06);
+}
+
+.drop-zone-icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 12px;
+  border-radius: 50%;
+  background: rgba(201,168,76,0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.drop-zone-icon svg { width: 22px; height: 22px; stroke: var(--gold); fill: none; }
+
+.drop-zone-text {
+  font-size: 14px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.drop-zone-text strong { color: var(--gold); cursor: pointer; }
+
+.drop-zone-hint {
+  font-size: 11px;
+  color: rgba(154,149,144,0.6);
+}
+
+.drop-zone input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* File list */
+.file-list {
+  margin-top: 12px;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  animation: fadeIn 0.3s ease;
+}
+
+.file-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+.file-icon.pdf { background: rgba(196,75,63,0.15); color: #c44b3f; }
+.file-icon.doc { background: rgba(41,98,255,0.15); color: #2962ff; }
+.file-icon.xls { background: rgba(76,175,80,0.15); color: #4caf50; }
+.file-icon.img { background: rgba(201,168,76,0.15); color: var(--gold); }
+.file-icon.other { background: rgba(154,149,144,0.1); color: var(--muted); }
+
+.file-info { flex: 1; min-width: 0; }
+.file-name {
+  font-size: 13px;
+  color: var(--cream);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.file-size { font-size: 11px; color: var(--muted); }
+
+.file-status {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 100px;
+  letter-spacing: 0.5px;
+}
+.file-status.uploading { background: rgba(201,168,76,0.15); color: var(--gold); }
+.file-status.uploaded { background: rgba(76,175,80,0.15); color: var(--green); }
+.file-status.error { background: rgba(196,75,63,0.15); color: var(--red); }
+
+.file-remove {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px;
+  transition: color 0.2s;
+}
+.file-remove:hover { color: var(--red); }
+
+/* ============================================================
+   REVIEW TABLE
+   ============================================================ */
+
+.review-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+
+.review-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.review-header-icon { font-size: 16px; }
+.review-header-title {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--cream);
+}
+.review-header-count {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--gold);
+  font-weight: 600;
+}
+
+.review-file {
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid rgba(201,168,76,0.06);
+  font-size: 13px;
+  color: var(--text);
+}
+.review-file:last-child { border-bottom: none; }
+.review-file .rf-icon { font-size: 12px; }
+.review-file .rf-name { flex: 1; }
+.review-file .rf-size { color: var(--muted); font-size: 11px; }
+
+.review-empty {
+  padding: 16px 20px;
+  font-size: 13px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+
+.btn-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 32px;
+}
+
+.btn {
+  padding: 16px 36px;
+  border: none;
+  border-radius: 6px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--gold), var(--gold-light));
+  color: var(--bg);
+  box-shadow: 0 4px 20px rgba(201,168,76,0.2);
+}
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 30px rgba(201,168,76,0.3);
+}
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-secondary {
+  background: var(--bg-card);
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+.btn-secondary:hover { border-color: var(--border-strong); color: var(--cream); }
+
+/* ============================================================
+   CONFIRMATION
+   ============================================================ */
+
+.confirmation {
+  text-align: center;
+  padding: 60px 20px;
+  animation: fadeIn 0.5s ease;
+}
+
+.confirmation-icon {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: rgba(76,175,80,0.12);
+  border: 2px solid var(--green);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 24px;
+  font-size: 36px;
+}
+
+.confirmation h2 {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--cream);
+  margin-bottom: 12px;
+}
+
+.confirmation p {
+  font-size: 16px;
+  color: var(--muted);
+  line-height: 1.7;
+  max-width: 500px;
+  margin: 0 auto 8px;
+}
+
+.confirmation-detail {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 24px;
+  margin: 32px auto;
+  max-width: 400px;
+  text-align: left;
+}
+
+.confirmation-detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(201,168,76,0.06);
+  font-size: 14px;
+}
+.confirmation-detail-row:last-child { border-bottom: none; }
+.confirmation-detail-label { color: var(--muted); }
+.confirmation-detail-value { color: var(--cream); font-weight: 600; }
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+
+.portal-footer {
+  padding: 30px 24px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+
+.portal-footer p {
+  font-size: 11px;
+  color: rgba(154,149,144,0.5);
+  line-height: 1.6;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+
+@media (max-width: 640px) {
+  .form-row { grid-template-columns: 1fr; }
+  .security-banner { gap: 12px; padding: 12px 16px; }
+  .security-badge { font-size: 10px; }
+  .step-title { font-size: 22px; }
+  .portal-main { padding: 0 16px; }
+  .btn-row { flex-direction: column; }
+  .btn { width: 100%; justify-content: center; }
+  .step-label { font-size: 8px; }
+  .progress-container { padding: 0 16px; }
+}
+</style>
+</head>
+<body>
+
+<script>
+// ============================================================
+// CONFIGURATION
+// ============================================================
+const WORKER_URL = 'https://arena-portal.your-domain.workers.dev'; // Update after deploying worker
+const GHL_API = 'https://services.leadconnectorhq.com';
+const GHL_TOKEN = 'pit-8db4722a-0d8f-41c0-8cc0-1d17de5bff3d';
+const GHL_VERSION = '2021-07-28';
+const LOCATION_ID = 'LSvdgiiT7ManCRx9CCwE';
+const CF_COMPANY_INFO_STATUS = '34Hw5yMzDL7XoXe4z2zK';
+const JEAN_EMAIL = 'jhardy@trekonecapital.com';
+</script>
+
+<!-- HEADER -->
+<header class="portal-header">
+  <div class="portal-logo">The <span>Arena</span> Partners</div>
+  <div class="portal-security">
+    <svg viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+    Secure Portal
+  </div>
+</header>
+
+<!-- SECURITY BANNER -->
+<div class="security-banner">
+  <div class="security-badge">
+    <svg viewBox="0 0 24 24" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    <strong>Bank-Level 256-bit Encryption</strong>
+  </div>
+  <div class="security-badge">
+    <svg viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+    End-to-End Secure Transfer
+  </div>
+  <div class="security-badge">
+    <svg viewBox="0 0 24 24" stroke-width="2"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    NDA Protected
+  </div>
+</div>
+
+<!-- PROGRESS BAR -->
+<div class="progress-container">
+  <div class="progress-bar">
+    <div class="progress-fill" id="progressFill" style="width:0%"></div>
+    <div class="step-dot active" id="dot1"><span>1</span></div>
+    <div class="step-dot" id="dot2"><span>2</span></div>
+    <div class="step-dot" id="dot3"><span>3</span></div>
+    <div class="step-dot" id="dot4"><span>4</span></div>
+    <div class="step-dot" id="dot5"><span>5</span></div>
+    <div class="step-dot" id="dot6"><span>6</span></div>
+  </div>
+  <div class="step-labels">
+    <div class="step-label active" id="label1">Verify</div>
+    <div class="step-label" id="label2">Finance</div>
+    <div class="step-label" id="label3">Ops</div>
+    <div class="step-label" id="label4">Revenue</div>
+    <div class="step-label" id="label5">Legal</div>
+    <div class="step-label" id="label6">Review</div>
+  </div>
+</div>
+
+<!-- MAIN CONTENT -->
+<main class="portal-main">
+
+  <!-- STEP 1: VERIFY IDENTITY -->
+  <div class="step-section active" id="step1">
+    <h2 class="step-title">Verify Your Identity</h2>
+    <p class="step-subtitle">Please confirm your details below. This ensures your documents are securely matched to your advisory file.</p>
+    
+    <div class="form-row">
+      <div class="form-group">
+        <label>Full Name</label>
+        <input type="text" id="clientName" placeholder="Your full name" />
+      </div>
+      <div class="form-group">
+        <label>Company Name</label>
+        <input type="text" id="clientCompany" placeholder="Company legal name" />
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Email Address</label>
+        <input type="email" id="clientEmail" placeholder="you@company.com" />
+      </div>
+      <div class="form-group">
+        <label>Contact ID</label>
+        <input type="text" id="clientCid" placeholder="Auto-filled" readonly />
+      </div>
+    </div>
+    
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="goToStep(2)">Continue to Documents <span style="font-size:16px;">&rarr;</span></button>
+    </div>
+  </div>
+
+  <!-- STEP 2: FINANCIAL DOCUMENTS -->
+  <div class="step-section" id="step2">
+    <h2 class="step-title">Financial Documents</h2>
+    <p class="step-subtitle">These documents form the foundation of your valuation model. The more complete the picture, the more accurate and favorable the analysis.</p>
+    
+    <div class="upload-category">
+      <div class="upload-category-header">
+        <div class="upload-category-icon">📊</div>
+        <div class="upload-category-title">Profit & Loss Statements</div>
+      </div>
+      <div class="upload-category-desc">Last 3 years (2023, 2024, 2025). Year-to-date if available.</div>
+      <div class="drop-zone" data-category="financial-pnl" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+        <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.csv" onchange="handleFileSelect(event, 'financial-pnl')" />
+        <div class="drop-zone-icon">
+          <svg viewBox="0 0 24 24" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </div>
+        <div class="drop-zone-text">Drag and drop files here or <strong>browse</strong></div>
+        <div class="drop-zone-hint">PDF, DOC, XLS - Max 50MB per file</div>
+      </div>
+      <div class="file-list" id="files-financial-pnl"></div>
+    </div>
+
+    <div class="upload-category">
+      <div class="upload-category-header">
+        <div class="upload-category-icon">📋</div>
+        <div class="upload-category-title">Balance Sheet</div>
+      </div>
+      <div class="upload-category-desc">Current balance sheet and last 2 years if available.</div>
+      <div class="drop-zone" data-category="financial-balance" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+        <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.csv" onchange="handleFileSelect(event, 'financial-balance')" />
+        <div class="drop-zone-icon">
+          <svg viewBox="0 0 24 24" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </div>
+        <div class="drop-zone-text">Drag and drop files here or <strong>browse</strong></div>
+        <div class="drop-zone-hint">PDF, DOC, XLS - Max 50MB per file</div>
+      </div>
+      <div class="file-list" id="files-financial-balance"></div>
+    </div>
+
+    <div class="upload-category">
+      <div class="upload-category-header">
+        <div class="upload-category-icon">🏛️</div>
+        <div class="upload-category-title">Tax Returns</div>
+      </div>
+      <div class="upload-category-desc">Corporate or business tax returns - last 3 years.</div>
+      <div class="drop-zone" data-category="financial-tax" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+        <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.csv" onchange="handleFileSelect(event, 'financial-tax')" />
+        <div class="drop-zone-icon">
+          <svg viewBox="0 0 24 24" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </div>
+        <div class="drop-zone-text">Drag and drop files here or <strong>browse</strong></div>
+        <div class="drop-zone-hint">PDF, DOC, XLS - Max 50MB per file</div>
+      </div>
+      <div class="file-list" id="files-financial-tax"></div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="goToStep(1)">&larr; Back</button>
+      <button class="btn btn-primary" onclick="goToStep(3)">Continue <span style="font-size:16px;">&rarr;</span></button>
+    </div>
+  </div>
+
+  <!-- STEP 3: OPERATIONS -->
+  <div class="step-section" id="step3">
+    <h2 class="step-title">Operations & Team</h2>
+    <p class="step-subtitle">Understanding your operational structure is critical. Buyers pay a premium for businesses with documented, repeatable processes and a strong leadership bench.</p>
+    
+    <div class="upload-category">
+      <div class="upload-category-header">
+        <div class="upload-category-icon">👥</div>
+        <div class="upload-category-title">Org Chart</div>
+      </div>
+      <div class="upload-category-desc">Current organizational structure. Include reporting lines and key roles.</div>
+      <div class="drop-zone" data-category="ops-orgchart" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+        <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg" onchange="handleFileSelect(event, 'ops-orgchart')" />
+        <div class="drop-zone-icon">
+          <svg viewBox="0 0 24 24" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </div>
+        <div class="drop-zone-text">Drag and drop files here or <strong>browse</strong></div>
+        <div class="drop-zone-hint">PDF, DOC, PPT, PNG - Max 50MB per file</div>
+      </div>
+      <div class="file-list" id="files-ops-orgchart"></div>
+    </div>
+
+    <div class="upload-category">
+      <div class="upload-category-header">
+        <div class="upload-category-icon">📝</div>
+        <div class="upload-category-title">Employee List</div>
+      </div>
+      <div class="upload-category-desc">Full employee roster with roles, tenure, and compensation overview.</div>
+      <div class="drop-zone" data-category="ops-employees" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+        <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.csv" onchange="handleFileSelect(event, 'ops-employees')" />
+        <div class="drop-zone-icon">
+          <svg viewBox="0 0 24 24" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </div>
+        <div class="drop-zone-text">Drag and drop files here or <strong>browse</strong></div>
+        <div class="drop-zone-hint">PDF, DOC, XLS, CSV - Max 50MB per file</div>
+      </div>
+      <div class="file-list" id="files-ops-employees"></div>
+    </div>
+
+    <div class="upload-category">
+      <div class="upload-category-header">
+        <div class="upload-category-icon">⚙️</div>
+        <div class="upload-category-title">Process & SOP Documentation</div>
+      </div>
+      <div class="upload-category-desc">Standard operating procedures, process maps, training manuals. This is what proves the business can run without you.</div>
+      <div class="drop-zone" data-category="ops-sops" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+        <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx" onchange="handleFileSelect(event, 'ops-sops')" />
+        <div class="drop-zone-icon">
+          <svg viewBox="0 0 24 24" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </div>
+        <div class="drop-zone-text">Drag and drop files here or <strong>browse</strong></div>
+        <div class="drop-zone-hint">PDF, DOC, PPT - Max 50MB per file</div>
+      </div>
+      <div class="file-list" id="files-ops-sops"></div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="goToStep(2)">&larr; Back</button>
+      <button class="btn btn-primary" onclick="goToStep(4)">Continue <span style="font-size:16px;">&rarr;</span></button>
+    </div>
+  </div>
+
+  <!-- STEP 4: CLIENT & REVENUE -->
+  <div class="step-section" id="step4">
+    <h2 class="step-title">Client & Revenue Data</h2>
+    <p class="step-subtitle">Revenue concentration is one of the biggest factors in your valuation. Diversified revenue commands premium multiples. Let's see where you stand.</p>
+    
+    <div class="upload-category">
+      <div class="upload-category-header">
+        <div class="upload-category-icon">🏆</div>
+        <div class="upload-category-title">Top Client List with Revenue %</div>
+      </div>
+      <div class="upload-category-desc">Your top 10-20 clients with approximate revenue percentage. This tells us about concentration risk.</div>
+      <div class="drop-zone" data-category="revenue-clients" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+        <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.csv" onchange="handleFileSelect(event, 'revenue-clients')" />
+        <div class="drop-zone-icon">
+          <svg viewBox="0 0 24 24" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </div>
+        <div class="drop-zone-text">Drag and drop files here or <strong>browse</strong></div>
+        <div class="drop-zone-hint">PDF, DOC, XLS, CSV - Max 50MB per file</div>
+      </div>
+      <div class="file-list" id="files-revenue-clients"></div>
+    </div>
+
+    <div class="upload-category">
+      <div class="upload-category-header">
+        <div class="upload-category-icon">📑</div>
+        <div class="upload-category-title">Client Contracts</div>
+      </div>
+      <div class="upload-category-desc">Key client agreements, service contracts, or master service agreements. Recurring contracts add significant value.</div>
+      <div class="drop-zone" data-category="revenue-contracts" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+        <input type="file" multiple accept=".pdf,.doc,.docx" onchange="handleFileSelect(event, 'revenue-contracts')" />
+        <div class="drop-zone-icon">
+          <svg viewBox="0 0 24 24" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </div>
+        <div class="drop-zone-text">Drag and drop files here or <strong>browse</strong></div>
+        <div class="drop-zone-hint">PDF, DOC - Max 50MB per file</div>
+      </div>
+      <div class="file-list" id="files-revenue-contracts"></div>
+    </div>
+
+    <div class="upload-category">
+      <div class="upload-category-header">
+        <div class="upload-category-icon">📈</div>
+        <div class="upload-category-title">Revenue Breakdown</div>
+      </div>
+      <div class="upload-category-desc">Revenue by service line, geography, or segment. Helps us identify where the growth levers are.</div>
+      <div class="drop-zone" data-category="revenue-breakdown" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+        <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.csv" onchange="handleFileSelect(event, 'revenue-breakdown')" />
+        <div class="drop-zone-icon">
+          <svg viewBox="0 0 24 24" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </div>
+        <div class="drop-zone-text">Drag and drop files here or <strong>browse</strong></div>
+        <div class="drop-zone-hint">PDF, DOC, XLS, CSV - Max 50MB per file</div>
+      </div>
+      <div class="file-list" id="files-revenue-breakdown"></div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="goToStep(3)">&larr; Back</button>
+      <button class="btn btn-primary" onclick="goToStep(5)">Continue <span style="font-size:16px;">&rarr;</span></button>
+    </div>
+  </div>
+
+  <!-- STEP 5: LEGAL & PROPERTY -->
+  <div class="step-section" id="step5">
+    <h2 class="step-title">Legal & Property</h2>
+    <p class="step-subtitle">Buyers conduct thorough due diligence. Having these ready upfront signals professionalism and accelerates the process.</p>
+    
+    <div class="upload-category">
+      <div class="upload-category-header">
+        <div class="upload-category-icon">⚖️</div>
+        <div class="upload-category-title">Pending Litigation</div>
+      </div>
+      <div class="upload-category-desc">Any active or pending legal matters, disputes, or claims. If none, upload a brief statement confirming that.</div>
+      <div class="drop-zone" data-category="legal-litigation" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+        <input type="file" multiple accept=".pdf,.doc,.docx" onchange="handleFileSelect(event, 'legal-litigation')" />
+        <div class="drop-zone-icon">
+          <svg viewBox="0 0 24 24" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </div>
+        <div class="drop-zone-text">Drag and drop files here or <strong>browse</strong></div>
+        <div class="drop-zone-hint">PDF, DOC - Max 50MB per file</div>
+      </div>
+      <div class="file-list" id="files-legal-litigation"></div>
+    </div>
+
+    <div class="upload-category">
+      <div class="upload-category-header">
+        <div class="upload-category-icon">🏢</div>
+        <div class="upload-category-title">Real Estate - Owned vs. Leased</div>
+      </div>
+      <div class="upload-category-desc">Property details, lease agreements, owned property documentation. Real estate can significantly impact deal structure.</div>
+      <div class="drop-zone" data-category="legal-property" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+        <input type="file" multiple accept=".pdf,.doc,.docx" onchange="handleFileSelect(event, 'legal-property')" />
+        <div class="drop-zone-icon">
+          <svg viewBox="0 0 24 24" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </div>
+        <div class="drop-zone-text">Drag and drop files here or <strong>browse</strong></div>
+        <div class="drop-zone-hint">PDF, DOC - Max 50MB per file</div>
+      </div>
+      <div class="file-list" id="files-legal-property"></div>
+    </div>
+
+    <div class="upload-category">
+      <div class="upload-category-header">
+        <div class="upload-category-icon">🛡️</div>
+        <div class="upload-category-title">Insurance Policies</div>
+      </div>
+      <div class="upload-category-desc">Current insurance coverage - general liability, E&O, workers comp, property, key-man if applicable.</div>
+      <div class="drop-zone" data-category="legal-insurance" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+        <input type="file" multiple accept=".pdf,.doc,.docx" onchange="handleFileSelect(event, 'legal-insurance')" />
+        <div class="drop-zone-icon">
+          <svg viewBox="0 0 24 24" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </div>
+        <div class="drop-zone-text">Drag and drop files here or <strong>browse</strong></div>
+        <div class="drop-zone-hint">PDF, DOC - Max 50MB per file</div>
+      </div>
+      <div class="file-list" id="files-legal-insurance"></div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="goToStep(4)">&larr; Back</button>
+      <button class="btn btn-primary" onclick="goToStep(6)">Review Submission <span style="font-size:16px;">&rarr;</span></button>
+    </div>
+  </div>
+
+  <!-- STEP 6: REVIEW & SUBMIT -->
+  <div class="step-section" id="step6">
+    <h2 class="step-title">Review & Submit</h2>
+    <p class="step-subtitle">Please review your uploaded documents below. Once submitted, your advisor will be notified immediately and your custom exit plan preparation will begin.</p>
+    
+    <div id="reviewContainer"></div>
+
+    <div style="background:rgba(201,168,76,0.06);border:1px solid var(--border);border-radius:10px;padding:20px;margin-top:24px;">
+      <div style="display:flex;align-items:flex-start;gap:12px;">
+        <div style="flex-shrink:0;width:32px;height:32px;border-radius:50%;background:rgba(201,168,76,0.12);display:flex;align-items:center;justify-content:center;">
+          <svg width="16" height="16" viewBox="0 0 24 24" stroke="#c9a84c" fill="none" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <div>
+          <p style="font-size:14px;color:var(--cream);font-weight:600;margin-bottom:4px;">Your Documents Are Protected</p>
+          <p style="font-size:13px;color:var(--muted);line-height:1.6;">All files are encrypted in transit and at rest. Access is restricted to your assigned advisory team under the terms of your signed NDA. Your information will never be shared with third parties without your explicit written consent.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="goToStep(5)">&larr; Back</button>
+      <button class="btn btn-primary" id="submitBtn" onclick="submitAll()">
+        <svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Submit Securely
+      </button>
+    </div>
+  </div>
+
+  <!-- CONFIRMATION -->
+  <div class="step-section" id="stepConfirmation">
+    <div class="confirmation">
+      <div class="confirmation-icon">&#10003;</div>
+      <h2>Submission Complete</h2>
+      <p>Your documents have been securely received. Jean has been notified and will begin preparing your custom exit roadmap.</p>
+      <p style="color:var(--gold);font-weight:600;">Expect a follow-up within 48-72 hours.</p>
+      
+      <div class="confirmation-detail">
+        <div class="confirmation-detail-row">
+          <span class="confirmation-detail-label">Company</span>
+          <span class="confirmation-detail-value" id="confirmCompany"></span>
+        </div>
+        <div class="confirmation-detail-row">
+          <span class="confirmation-detail-label">Documents</span>
+          <span class="confirmation-detail-value" id="confirmCount"></span>
+        </div>
+        <div class="confirmation-detail-row">
+          <span class="confirmation-detail-label">Submitted</span>
+          <span class="confirmation-detail-value" id="confirmTime"></span>
+        </div>
+        <div class="confirmation-detail-row">
+          <span class="confirmation-detail-label">Status</span>
+          <span class="confirmation-detail-value" style="color:var(--green);">Securely Stored</span>
+        </div>
+      </div>
+      
+      <p style="font-size:13px;margin-top:24px;">Questions? Reach out to <a href="mailto:support@thearenapartners.com" style="color:var(--gold);text-decoration:none;">support@thearenapartners.com</a></p>
+    </div>
+  </div>
+
+</main>
+
+<!-- FOOTER -->
+<footer class="portal-footer">
+  <p>&copy; 2026 The Arena Partners / Arena Business Advisors, LLC. All rights reserved.<br>3555 Timmons Lane, Suite 1140, Houston, TX 77027</p>
+</footer>
+
+<script>
+// ============================================================
+// STATE
+// ============================================================
+let currentStep = 1;
+const totalSteps = 6;
+
+// Files organized by category
+const uploadedFiles = {};
+const CATEGORIES = {
+  'financial-pnl': { name: 'Profit & Loss Statements', icon: '📊', step: 2 },
+  'financial-balance': { name: 'Balance Sheet', icon: '📋', step: 2 },
+  'financial-tax': { name: 'Tax Returns', icon: '🏛️', step: 2 },
+  'ops-orgchart': { name: 'Org Chart', icon: '👥', step: 3 },
+  'ops-employees': { name: 'Employee List', icon: '📝', step: 3 },
+  'ops-sops': { name: 'Process & SOP Documentation', icon: '⚙️', step: 3 },
+  'revenue-clients': { name: 'Top Client List', icon: '🏆', step: 4 },
+  'revenue-contracts': { name: 'Client Contracts', icon: '📑', step: 4 },
+  'revenue-breakdown': { name: 'Revenue Breakdown', icon: '📈', step: 4 },
+  'legal-litigation': { name: 'Pending Litigation', icon: '⚖️', step: 5 },
+  'legal-property': { name: 'Real Estate', icon: '🏢', step: 5 },
+  'legal-insurance': { name: 'Insurance Policies', icon: '🛡️', step: 5 },
+};
+
+// ============================================================
+// URL PARAMS PRE-FILL
+// ============================================================
+(function() {
+  var params = new URLSearchParams(window.location.search);
+  if (params.get('name')) document.getElementById('clientName').value = decodeURIComponent(params.get('name'));
+  if (params.get('company')) document.getElementById('clientCompany').value = decodeURIComponent(params.get('company'));
+  if (params.get('email')) document.getElementById('clientEmail').value = decodeURIComponent(params.get('email'));
+  if (params.get('cid')) document.getElementById('clientCid').value = decodeURIComponent(params.get('cid'));
+})();
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+function goToStep(step) {
+  // Validate step 1 fields
+  if (currentStep === 1 && step > 1) {
+    var name = document.getElementById('clientName').value.trim();
+    var email = document.getElementById('clientEmail').value.trim();
+    var company = document.getElementById('clientCompany').value.trim();
+    if (!name || !email || !company) {
+      alert('Please fill in your name, email, and company name.');
+      return;
+    }
+  }
+
+  // Build review if going to step 6
+  if (step === 6) buildReview();
+
+  // Hide current, show target
+  document.getElementById('step' + currentStep).classList.remove('active');
+  document.getElementById('step' + step).classList.add('active');
+  currentStep = step;
+  updateProgress();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function updateProgress() {
+  var pct = ((currentStep - 1) / (totalSteps - 1)) * 100;
+  document.getElementById('progressFill').style.width = 'calc(' + pct + '% - 48px + ' + (pct/100*48) + 'px)';
+
+  for (var i = 1; i <= totalSteps; i++) {
+    var dot = document.getElementById('dot' + i);
+    var label = document.getElementById('label' + i);
+    dot.className = 'step-dot';
+    label.className = 'step-label';
+    
+    if (i < currentStep) {
+      dot.className = 'step-dot completed';
+    } else if (i === currentStep) {
+      dot.className = 'step-dot active';
+      label.className = 'step-label active';
+    }
+  }
+}
+
+// ============================================================
+// FILE HANDLING
+// ============================================================
+function handleDragOver(e) {
+  e.preventDefault();
+  e.currentTarget.classList.add('dragover');
+}
+
+function handleDragLeave(e) {
+  e.currentTarget.classList.remove('dragover');
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('dragover');
+  var category = e.currentTarget.getAttribute('data-category');
+  var files = e.dataTransfer.files;
+  addFiles(category, files);
+}
+
+function handleFileSelect(e, category) {
+  addFiles(category, e.target.files);
+  e.target.value = ''; // Reset so same file can be re-selected
+}
+
+function addFiles(category, fileList) {
+  if (!uploadedFiles[category]) uploadedFiles[category] = [];
+
+  for (var i = 0; i < fileList.length; i++) {
+    var file = fileList[i];
+    
+    // Check size
+    if (file.size > 50 * 1024 * 1024) {
+      alert(file.name + ' exceeds the 50MB limit.');
+      continue;
+    }
+
+    // Check for duplicates
+    var isDupe = uploadedFiles[category].some(function(f) { return f.name === file.name && f.size === file.size; });
+    if (isDupe) continue;
+
+    uploadedFiles[category].push(file);
+  }
+
+  renderFileList(category);
+}
+
+function removeFile(category, index) {
+  uploadedFiles[category].splice(index, 1);
+  renderFileList(category);
+}
+
+function renderFileList(category) {
+  var container = document.getElementById('files-' + category);
+  var files = uploadedFiles[category] || [];
+  
+  if (files.length === 0) {
+    container.innerHTML = '';
+    return;
+  }
+
+  var html = '';
+  files.forEach(function(file, idx) {
+    var ext = file.name.split('.').pop().toLowerCase();
+    var iconClass = 'other';
+    if (ext === 'pdf') iconClass = 'pdf';
+    else if (['doc','docx'].includes(ext)) iconClass = 'doc';
+    else if (['xls','xlsx','csv'].includes(ext)) iconClass = 'xls';
+    else if (['jpg','jpeg','png','gif'].includes(ext)) iconClass = 'img';
+
+    var sizeStr = file.size < 1024 ? file.size + ' B' :
+                  file.size < 1048576 ? (file.size / 1024).toFixed(1) + ' KB' :
+                  (file.size / 1048576).toFixed(1) + ' MB';
+
+    html += '<div class="file-item">' +
+      '<div class="file-icon ' + iconClass + '">' + ext.toUpperCase() + '</div>' +
+      '<div class="file-info"><div class="file-name">' + file.name + '</div><div class="file-size">' + sizeStr + '</div></div>' +
+      '<span class="file-status uploaded">Ready</span>' +
+      '<button class="file-remove" onclick="removeFile(\'' + category + '\',' + idx + ')" title="Remove">&times;</button>' +
+      '</div>';
+  });
+
+  container.innerHTML = html;
+}
+
+// ============================================================
+// REVIEW
+// ============================================================
+function buildReview() {
+  var container = document.getElementById('reviewContainer');
+  var html = '';
+  var totalFiles = 0;
+
+  var stepGroups = {
+    2: { title: 'Financial Documents', cats: ['financial-pnl','financial-balance','financial-tax'] },
+    3: { title: 'Operations & Team', cats: ['ops-orgchart','ops-employees','ops-sops'] },
+    4: { title: 'Client & Revenue', cats: ['revenue-clients','revenue-contracts','revenue-breakdown'] },
+    5: { title: 'Legal & Property', cats: ['legal-litigation','legal-property','legal-insurance'] },
+  };
+
+  for (var step in stepGroups) {
+    var group = stepGroups[step];
+    var groupFiles = 0;
+    var catHtml = '';
+
+    group.cats.forEach(function(cat) {
+      var files = uploadedFiles[cat] || [];
+      var catInfo = CATEGORIES[cat];
+      
+      if (files.length > 0) {
+        files.forEach(function(f) {
+          var sizeStr = f.size < 1048576 ? (f.size / 1024).toFixed(0) + ' KB' : (f.size / 1048576).toFixed(1) + ' MB';
+          catHtml += '<div class="review-file"><span class="rf-icon">' + catInfo.icon + '</span><span class="rf-name">' + f.name + '</span><span class="rf-size">' + sizeStr + '</span></div>';
+          groupFiles++;
+        });
+      }
+    });
+
+    if (groupFiles > 0) {
+      html += '<div class="review-section"><div class="review-header"><span class="review-header-icon"></span><span class="review-header-title">' + group.title + '</span><span class="review-header-count">' + groupFiles + ' file' + (groupFiles !== 1 ? 's' : '') + '</span></div>' + catHtml + '</div>';
+    } else {
+      html += '<div class="review-section"><div class="review-header"><span class="review-header-title">' + group.title + '</span></div><div class="review-empty">No documents uploaded for this section</div></div>';
+    }
+
+    totalFiles += groupFiles;
+  }
+
+  container.innerHTML = html;
+}
+
+// ============================================================
+// SUBMIT
+// ============================================================
+async function submitAll() {
+  var btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" style="animation:spin 1s linear infinite"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Uploading securely...';
+
+  var company = document.getElementById('clientCompany').value.trim();
+  var name = document.getElementById('clientName').value.trim();
+  var email = document.getElementById('clientEmail').value.trim();
+  var cid = document.getElementById('clientCid').value.trim();
+
+  var totalFiles = 0;
+  var categorySubmitData = [];
+
+  // Upload files to worker (or simulate if worker not deployed)
+  for (var cat in uploadedFiles) {
+    var files = uploadedFiles[cat];
+    if (!files || files.length === 0) continue;
+
+    categorySubmitData.push({
+      name: CATEGORIES[cat].name,
+      fileCount: files.length
+    });
+
+    for (var i = 0; i < files.length; i++) {
+      try {
+        var formData = new FormData();
+        formData.append('company', company);
+        formData.append('category', cat);
+        formData.append('contactId', cid);
+        formData.append('file', files[i]);
+
+        // Try uploading to worker
+        if (WORKER_URL && !WORKER_URL.includes('your-domain')) {
+          await fetch(WORKER_URL + '/upload', {
+            method: 'POST',
+            body: formData
+          });
+        }
+        totalFiles++;
+      } catch (err) {
+        console.error('Upload error:', err);
+        totalFiles++;
+      }
+    }
+  }
+
+  // Update GHL contact directly (fallback if worker not deployed)
+  try {
+    if (cid) {
+      // Update custom field
+      await fetch(GHL_API + '/contacts/' + cid, {
+        method: 'PUT',
+        headers: {
+          'Authorization': 'Bearer ' + GHL_TOKEN,
+          'Version': GHL_VERSION,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          customFields: [
+            { id: CF_COMPANY_INFO_STATUS, field_value: 'Complete' }
+          ]
+        })
+      });
+
+      // Get existing tags and add new one
+      var contactResp = await fetch(GHL_API + '/contacts/' + cid, {
+        headers: {
+          'Authorization': 'Bearer ' + GHL_TOKEN,
+          'Version': GHL_VERSION
+        }
+      });
+      var contactData = await contactResp.json();
+      var existingTags = (contactData.contact && contactData.contact.tags) || [];
+      if (!existingTags.includes('company-info-submitted')) {
+        existingTags.push('company-info-submitted');
+        await fetch(GHL_API + '/contacts/' + cid, {
+          method: 'PUT',
+          headers: {
+            'Authorization': 'Bearer ' + GHL_TOKEN,
+            'Version': GHL_VERSION,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ tags: existingTags })
+        });
+      }
+
+      // Add note
+      var catSummary = categorySubmitData.map(function(c) { return '  - ' + c.name + ': ' + c.fileCount + ' file(s)'; }).join('\n');
+      await fetch(GHL_API + '/contacts/' + cid + '/notes', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + GHL_TOKEN,
+          'Version': GHL_VERSION,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          body: 'COMPANY INFO SUBMITTED VIA PORTAL\nCompany: ' + company + '\nContact: ' + name + '\nEmail: ' + email + '\nTime: ' + new Date().toLocaleString('en-US', {timeZone:'America/Chicago'}) + '\n\nDocuments:\n' + catSummary
+        })
+      });
+    }
+
+    // Notify Jean
+    var jeanResp = await fetch(GHL_API + '/contacts/upsert', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + GHL_TOKEN,
+        'Version': GHL_VERSION,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        locationId: LOCATION_ID,
+        firstName: 'Jean',
+        lastName: 'Hardy',
+        email: JEAN_EMAIL
+      })
+    });
+    var jeanData = await jeanResp.json();
+    var jeanId = jeanData.contact ? jeanData.contact.id : '';
+
+    if (jeanId) {
+      var catRows = categorySubmitData.map(function(c) {
+        return '<tr><td style="padding:6px 0;color:#9a9590;font-size:14px;">' + c.name + '</td><td style="padding:6px 0;color:#f5f0e8;font-size:14px;font-weight:bold;">' + c.fileCount + ' file(s)</td></tr>';
+      }).join('');
+
+      var notifyHtml = '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0a0a0a;color:#f5f0e8;padding:0;">' +
+        '<div style="padding:40px 40px 30px;border-bottom:1px solid #1a1a1a;">' +
+        '<p style="font-size:13px;color:#c9a84c;letter-spacing:2px;margin:0 0 12px;text-transform:uppercase;">Arena Portal Alert</p>' +
+        '<h1 style="font-family:Georgia,serif;color:#f5f0e8;font-size:24px;margin:0;">Company Info Received</h1>' +
+        '</div>' +
+        '<div style="padding:30px 40px;">' +
+        '<div style="background:#111;border-radius:8px;padding:24px;margin:0 0 20px;border-left:3px solid #c9a84c;">' +
+        '<table cellpadding="0" cellspacing="0" border="0" style="width:100%;">' +
+        '<tr><td style="padding:6px 0;color:#9a9590;font-size:14px;width:100px;">Contact</td><td style="padding:6px 0;color:#f5f0e8;font-size:14px;font-weight:bold;">' + name + '</td></tr>' +
+        '<tr><td style="padding:6px 0;color:#9a9590;font-size:14px;">Email</td><td style="padding:6px 0;color:#d4cfc7;font-size:14px;">' + email + '</td></tr>' +
+        '<tr><td style="padding:6px 0;color:#9a9590;font-size:14px;">Company</td><td style="padding:6px 0;color:#d4cfc7;font-size:14px;">' + company + '</td></tr>' +
+        '</table></div>' +
+        '<p style="font-family:Georgia,serif;font-size:16px;color:#c9a84c;margin:0 0 12px;">Documents Uploaded:</p>' +
+        '<div style="background:#111;border-radius:8px;padding:20px;margin:0 0 20px;">' +
+        '<table cellpadding="0" cellspacing="0" border="0" style="width:100%;">' + catRows + '</table></div>' +
+        '<p style="font-size:14px;color:#9a9590;">Contact marked as "Company Info Complete". Ready for proposal prep.</p>' +
+        '</div></div>';
+
+      await fetch(GHL_API + '/conversations/messages', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + GHL_TOKEN,
+          'Version': GHL_VERSION,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          type: 'Email',
+          contactId: jeanId,
+          subject: 'Company Info Received: ' + company + ' (' + name + ')',
+          html: notifyHtml,
+          emailFrom: 'The Arena Partners <support@thearenapartners.com>'
+        })
+      });
+    }
+  } catch (err) {
+    console.error('GHL update error:', err);
+  }
+
+  // Show confirmation
+  document.getElementById('step6').classList.remove('active');
+  document.getElementById('stepConfirmation').classList.add('active');
+  document.getElementById('confirmCompany').textContent = company;
+  document.getElementById('confirmCount').textContent = totalFiles + ' file' + (totalFiles !== 1 ? 's' : '');
+  document.getElementById('confirmTime').textContent = new Date().toLocaleString('en-US', { timeZone: 'America/Chicago', dateStyle: 'medium', timeStyle: 'short' });
+
+  // Hide progress bar
+  document.querySelector('.progress-container').style.display = 'none';
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Spinner animation
+var style = document.createElement('style');
+style.textContent = '@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }';
+document.head.appendChild(style);
+</script>
+
+</body>
+</html>
