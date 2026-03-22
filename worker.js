@@ -348,8 +348,8 @@ async function handleGHLProxy(request, env, path) {
 }
 
 // ============================================================
-// FULLCONTACT ENRICHMENT (Free tier: 100 matches/month)
-// Upgrade path: 100+ leads/month -> FullContact paid plan
+// PEOPLE DATA LABS ENRICHMENT (Free: 100 calls/month)
+// Upgrade path: 100+ leads/month -> PDL paid plan
 // ============================================================
 
 const GENERIC_DOMAINS = [
@@ -360,9 +360,9 @@ const GENERIC_DOMAINS = [
 ];
 
 async function handleEnrich(request, env) {
-  const fcKey = env.FULLCONTACT_API_KEY;
-  if (!fcKey) {
-    return jsonResponse({ error: 'FullContact API key not configured. Add FULLCONTACT_API_KEY as Worker secret. Get free key at https://platform.fullcontact.com/developers/api-keys' }, 500);
+  const pdlKey = env.PDL_API_KEY;
+  if (!pdlKey) {
+    return jsonResponse({ error: 'People Data Labs API key not configured. Add PDL_API_KEY as Worker secret.' }, 500);
   }
 
   const ghlToken = env.GHL_TOKEN;
@@ -378,154 +378,137 @@ async function handleEnrich(request, env) {
 
   console.log(`Enriching contact: ${contact_id} (${email})`);
 
-  // 1. Person enrichment via FullContact
+  // 1. Person enrichment via PDL
   let person = null;
   if (email) {
     try {
-      const personRes = await fetch('https://api.fullcontact.com/v3/person.enrich', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${fcKey}`,
-        },
-        body: JSON.stringify({ email }),
+      const params = new URLSearchParams({ email, pretty: 'false' });
+      const personRes = await fetch(`https://api.peopledatalabs.com/v5/person/enrich?${params}`, {
+        headers: { 'X-Api-Key': pdlKey },
       });
       if (personRes.ok) {
-        person = await personRes.json();
+        const data = await personRes.json();
+        if (data.status === 200) person = data;
       } else if (personRes.status === 404) {
-        console.log('FullContact: person not found');
+        console.log('PDL: person not found by email');
       } else if (personRes.status === 429) {
-        console.log('FullContact: rate limited (free tier: 100/month)');
-      } else {
-        console.log(`FullContact person error: ${personRes.status}`);
+        console.log('PDL: rate limited');
       }
     } catch (err) {
-      console.log('FullContact person.enrich failed:', err.message);
+      console.log('PDL person.enrich failed:', err.message);
     }
   }
 
-  // 2. Company enrichment via FullContact
+  // Fallback: search by name + company
+  if (!person && first_name && last_name && company_name) {
+    try {
+      const params = new URLSearchParams({
+        first_name, last_name, company: company_name, pretty: 'false'
+      });
+      const personRes = await fetch(`https://api.peopledatalabs.com/v5/person/enrich?${params}`, {
+        headers: { 'X-Api-Key': pdlKey },
+      });
+      if (personRes.ok) {
+        const data = await personRes.json();
+        if (data.status === 200) person = data;
+      }
+    } catch (err) {
+      console.log('PDL person search fallback failed:', err.message);
+    }
+  }
+
+  // 2. Company enrichment via PDL
   let company = null;
   const domain = email ? email.split('@')[1]?.toLowerCase() : null;
   const enrichDomain = (domain && !GENERIC_DOMAINS.includes(domain)) ? domain : null;
 
   if (enrichDomain) {
     try {
-      const companyRes = await fetch('https://api.fullcontact.com/v3/company.enrich', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${fcKey}`,
-        },
-        body: JSON.stringify({ domain: enrichDomain }),
+      const params = new URLSearchParams({ website: enrichDomain, pretty: 'false' });
+      const companyRes = await fetch(`https://api.peopledatalabs.com/v5/company/enrich?${params}`, {
+        headers: { 'X-Api-Key': pdlKey },
       });
       if (companyRes.ok) {
-        company = await companyRes.json();
-      } else if (companyRes.status === 404) {
-        console.log('FullContact: company not found');
-      } else {
-        console.log(`FullContact company error: ${companyRes.status}`);
+        const data = await companyRes.json();
+        if (data.status === 200) company = data;
       }
     } catch (err) {
-      console.log('FullContact company.enrich failed:', err.message);
+      console.log('PDL company.enrich failed:', err.message);
     }
   }
 
-  // 3. Build custom fields (mapped from FullContact response format)
+  // Also try company from person data
+  if (!company && person && person.job_company_website) {
+    try {
+      const params = new URLSearchParams({ website: person.job_company_website, pretty: 'false' });
+      const companyRes = await fetch(`https://api.peopledatalabs.com/v5/company/enrich?${params}`, {
+        headers: { 'X-Api-Key': pdlKey },
+      });
+      if (companyRes.ok) {
+        const data = await companyRes.json();
+        if (data.status === 200) company = data;
+      }
+    } catch (err) {}
+  }
+
+  // 3. Build custom fields (mapped from PDL response)
   const fields = {};
 
   if (person) {
-    // Person fields
-    fields.enriched_title = person.title || '';
-    fields.enriched_linkedin = '';
-    fields.enriched_seniority = '';
+    fields.enriched_title = person.job_title || '';
+    fields.enriched_seniority = person.job_title_role || '';
+    fields.enriched_linkedin = person.linkedin_url || '';
+    fields.enriched_full_name = person.full_name || '';
+    fields.enriched_city = person.location_locality || '';
+    fields.enriched_state = person.location_region || '';
 
-    // Extract LinkedIn from social profiles
-    if (person.socialProfiles) {
-      for (const sp of person.socialProfiles) {
-        if (sp.type === 'linkedin' || (sp.url && sp.url.includes('linkedin'))) {
-          fields.enriched_linkedin = sp.url || '';
-        }
+    // If we got company info from the person record
+    if (!company) {
+      if (person.job_company_name) fields.enriched_company_name = person.job_company_name;
+      if (person.job_company_industry) fields.enriched_industry = person.job_company_industry;
+      if (person.job_company_size) fields.enriched_employee_count = person.job_company_size;
+      if (person.job_company_founded) {
+        fields.enriched_founded_year = String(person.job_company_founded);
+        fields.enriched_years_in_business = String(new Date().getFullYear() - person.job_company_founded);
       }
-    }
-
-    // Extract title and seniority from employment
-    if (person.employment && person.employment.length > 0) {
-      const current = person.employment.find(e => e.current) || person.employment[0];
-      fields.enriched_title = current.title || fields.enriched_title;
-      // Map seniority from title
-      const titleLower = (fields.enriched_title || '').toLowerCase();
-      if (titleLower.includes('ceo') || titleLower.includes('owner') || titleLower.includes('founder') || titleLower.includes('president')) {
-        fields.enriched_seniority = 'owner';
-      } else if (titleLower.includes('vp') || titleLower.includes('director') || titleLower.includes('chief')) {
-        fields.enriched_seniority = 'executive';
-      } else if (titleLower.includes('manager') || titleLower.includes('lead')) {
-        fields.enriched_seniority = 'manager';
-      }
-    }
-
-    // Location from person
-    if (person.location) {
-      fields.enriched_city = person.location.city || '';
-      fields.enriched_state = person.location.region || person.location.state || '';
-    }
-
-    // Full name for verification
-    if (person.fullName) {
-      fields.enriched_full_name = person.fullName;
+      if (person.job_company_location_locality) fields.enriched_company_city = person.job_company_location_locality;
+      if (person.job_company_location_region) fields.enriched_company_state = person.job_company_location_region;
+      if (person.job_company_website) fields.enriched_website = person.job_company_website;
     }
   }
 
   if (company) {
-    // Company fields
     fields.enriched_company_name = company.name || '';
-    fields.enriched_industry = '';
-    fields.enriched_sub_industry = '';
+    fields.enriched_industry = company.industry || '';
+    fields.enriched_sub_industry = company.sub_industry || '';
     fields.enriched_website = company.website || enrichDomain || '';
-    fields.enriched_description = '';
-    fields.enriched_logo_url = company.logo || '';
+    fields.enriched_description = company.summary || '';
+    fields.enriched_logo_url = company.profile_pic_url || '';
     fields.enriched_company_city = '';
     fields.enriched_company_state = '';
 
-    // Industry from category/industry fields
-    if (company.category) {
-      fields.enriched_industry = company.category.industry || '';
-      fields.enriched_sub_industry = company.category.subIndustry || '';
-    }
-    if (company.industries && company.industries.length > 0) {
-      fields.enriched_industry = fields.enriched_industry || company.industries[0].name || company.industries[0] || '';
+    if (company.location) {
+      fields.enriched_company_city = company.location.locality || '';
+      fields.enriched_company_state = company.location.region || '';
     }
 
-    // Employee count
-    if (company.employees !== undefined && company.employees !== null) {
-      fields.enriched_employee_count = String(company.employees);
+    if (company.employee_count) {
+      fields.enriched_employee_count = String(company.employee_count);
+    } else if (company.size) {
+      fields.enriched_employee_count = company.size;
     }
 
-    // Founded year
     if (company.founded) {
       fields.enriched_founded_year = String(company.founded);
       fields.enriched_years_in_business = String(new Date().getFullYear() - company.founded);
     }
 
-    // Revenue
-    if (company.annualRevenue) {
-      fields.enriched_annual_revenue = company.annualRevenue;
+    if (company.estimated_annual_revenue) {
+      fields.enriched_annual_revenue = company.estimated_annual_revenue;
     }
 
-    // Location
-    if (company.location) {
-      fields.enriched_company_city = company.location.city || '';
-      fields.enriched_company_state = company.location.region || company.location.state || '';
-    }
-
-    // Keywords
-    if (company.keywords && company.keywords.length > 0) {
-      fields.enriched_keywords = company.keywords.slice(0, 10).join(', ');
-    }
-
-    // Bio/description
-    if (company.bio) {
-      fields.enriched_description = company.bio;
+    if (company.tags && company.tags.length > 0) {
+      fields.enriched_keywords = company.tags.slice(0, 10).join(', ');
     }
 
     // Company size label
@@ -539,7 +522,7 @@ async function handleEnrich(request, env) {
   }
 
   fields.enriched_at = new Date().toISOString();
-  fields.enrichment_source = 'fullcontact';
+  fields.enrichment_source = 'peopledatalabs';
   fields.enrichment_status = (person || company) ? 'enriched' : 'not_found';
 
   // 4. Write to GHL
@@ -553,16 +536,16 @@ async function handleEnrich(request, env) {
   const tag = fields.enrichment_status === 'enriched' ? 'enriched' : 'enrichment_failed';
   await ghlRequest('POST', `/contacts/${contact_id}/tags`, ghlToken, { tags: [tag] });
 
-  console.log(`Enrichment complete for ${contact_id}: ${fields.enrichment_status} (via FullContact)`);
+  console.log(`Enrichment complete for ${contact_id}: ${fields.enrichment_status} (via PDL)`);
 
   return jsonResponse({
     success: true,
     contact_id,
     enrichment_status: fields.enrichment_status,
-    enrichment_source: 'fullcontact',
+    enrichment_source: 'peopledatalabs',
     fields_written: customFieldsPayload.length,
-    company_found: company ? (company.name || enrichDomain) : null,
-    person_found: person ? (person.fullName || email) : null,
+    company_found: company ? company.name : (person ? person.job_company_name : null),
+    person_found: person ? person.full_name : null,
   });
 }
 
