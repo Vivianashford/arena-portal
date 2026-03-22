@@ -79,6 +79,19 @@ export default {
         return jsonResponse({ status: 'ok', service: 'arena-api', timestamp: new Date().toISOString() });
       }
 
+      // Direct mail - PostGrid (postcards + letters)
+      if (path === '/api/mail/postcard' && request.method === 'POST') {
+        return await handlePostGridPostcard(request, env);
+      }
+      if (path === '/api/mail/letter' && request.method === 'POST') {
+        return await handlePostGridLetter(request, env);
+      }
+
+      // Direct mail - Handwrytten (handwritten cards)
+      if (path === '/api/mail/handwritten' && request.method === 'POST') {
+        return await handleHandwrytten(request, env);
+      }
+
       return jsonResponse({ error: 'Not found' }, 404);
     } catch (err) {
       console.error('Worker error:', err);
@@ -588,6 +601,190 @@ async function getUpdatedTags(contactId, ghlToken, newTags) {
   const combined = [...new Set([...existing, ...newTags])];
   return combined;
 }
+
+// ============================================================
+// POSTGRID - POSTCARDS & LETTERS
+// ============================================================
+
+const POSTGRID_BASE = 'https://api.postgrid.com/print-mail/v1';
+const ARENA_RETURN_CONTACT = 'contact_u383WyVFKtgrcESeGAeLLt';
+
+async function handlePostGridPostcard(request, env) {
+  const pgKey = env.POSTGRID_API_KEY;
+  if (!pgKey) return jsonResponse({ error: 'PostGrid API key not configured' }, 500);
+
+  const { to_name, to_company, to_address, to_city, to_state, to_zip, front_html, back_html, size } = await request.json();
+
+  if (!to_name || !to_address || !to_city || !to_state || !to_zip) {
+    return jsonResponse({ error: 'Missing required address fields' }, 400);
+  }
+
+  // Create recipient contact
+  const contactRes = await fetch(`${POSTGRID_BASE}/contacts`, {
+    method: 'POST',
+    headers: { 'x-api-key': pgKey, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      firstName: to_name.split(' ')[0],
+      lastName: to_name.split(' ').slice(1).join(' ') || '',
+      companyName: to_company || '',
+      addressLine1: to_address,
+      city: to_city,
+      provinceOrState: to_state,
+      postalOrZip: to_zip,
+      countryCode: 'US',
+    }),
+  });
+  const contact = await contactRes.json();
+
+  if (!contact.id) {
+    return jsonResponse({ error: 'Failed to create recipient contact', details: contact }, 400);
+  }
+
+  // Send postcard
+  const postcardRes = await fetch(`${POSTGRID_BASE}/postcards`, {
+    method: 'POST',
+    headers: { 'x-api-key': pgKey, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      to: contact.id,
+      from: ARENA_RETURN_CONTACT,
+      frontHTML: front_html || '<div style="padding:40px;font-family:Georgia,serif;"><h1 style="color:#c9a84c;">The Arena Partners</h1><p>Your business. Your legacy. Your terms.</p></div>',
+      backHTML: back_html || '<div style="padding:40px;font-family:Georgia,serif;"><p>Ready to talk about your exit strategy?</p><p><strong>713-344-7420</strong></p><p>thearenapartners.com</p></div>',
+      size: size || '6x9',
+    }),
+  });
+  const postcard = await postcardRes.json();
+
+  return jsonResponse({
+    success: true,
+    type: 'postcard',
+    id: postcard.id,
+    status: postcard.status,
+    to: to_name,
+    expectedDelivery: postcard.expectedDeliveryDate,
+  });
+}
+
+async function handlePostGridLetter(request, env) {
+  const pgKey = env.POSTGRID_API_KEY;
+  if (!pgKey) return jsonResponse({ error: 'PostGrid API key not configured' }, 500);
+
+  const { to_name, to_company, to_address, to_city, to_state, to_zip, letter_html } = await request.json();
+
+  if (!to_name || !to_address || !to_city || !to_state || !to_zip) {
+    return jsonResponse({ error: 'Missing required address fields' }, 400);
+  }
+
+  // Create recipient
+  const contactRes = await fetch(`${POSTGRID_BASE}/contacts`, {
+    method: 'POST',
+    headers: { 'x-api-key': pgKey, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      firstName: to_name.split(' ')[0],
+      lastName: to_name.split(' ').slice(1).join(' ') || '',
+      companyName: to_company || '',
+      addressLine1: to_address,
+      city: to_city,
+      provinceOrState: to_state,
+      postalOrZip: to_zip,
+      countryCode: 'US',
+    }),
+  });
+  const contact = await contactRes.json();
+
+  if (!contact.id) {
+    return jsonResponse({ error: 'Failed to create recipient', details: contact }, 400);
+  }
+
+  // Send letter
+  const letterRes = await fetch(`${POSTGRID_BASE}/letters`, {
+    method: 'POST',
+    headers: { 'x-api-key': pgKey, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      to: contact.id,
+      from: ARENA_RETURN_CONTACT,
+      html: letter_html,
+    }),
+  });
+  const letter = await letterRes.json();
+
+  return jsonResponse({
+    success: true,
+    type: 'letter',
+    id: letter.id,
+    status: letter.status,
+    to: to_name,
+    expectedDelivery: letter.expectedDeliveryDate,
+  });
+}
+
+// ============================================================
+// HANDWRYTTEN - HANDWRITTEN CARDS
+// ============================================================
+
+async function handleHandwrytten(request, env) {
+  const appKey = env.HANDWRYTTEN_APP_KEY;
+  if (!appKey) return jsonResponse({ error: 'Handwrytten app key not configured' }, 500);
+
+  const { to_name, to_company, to_address, to_city, to_state, to_zip, message, card_id } = await request.json();
+
+  if (!to_name || !to_address || !message) {
+    return jsonResponse({ error: 'Missing required fields (to_name, to_address, message)' }, 400);
+  }
+
+  // Handwrytten singleStepOrder - send card in one API call
+  const orderRes = await fetch('https://api.handwrytten.com/v1/orders/singleStepOrder', {
+    method: 'POST',
+    headers: {
+      'app_key': appKey,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      card_id: card_id || 25, // Classic Script (default)
+      message: message,
+      sender_first_name: 'Jean',
+      sender_last_name: 'Hardy',
+      sender_company: 'The Arena Partners',
+      sender_address1: '3555 Timmons Ln',
+      sender_address2: 'Ste 1140',
+      sender_city: 'Houston',
+      sender_state: 'TX',
+      sender_zip: '77027',
+      recipient_first_name: to_name.split(' ')[0],
+      recipient_last_name: to_name.split(' ').slice(1).join(' ') || '',
+      recipient_company: to_company || '',
+      recipient_address1: to_address,
+      recipient_city: to_city,
+      recipient_state: to_state,
+      recipient_zip: to_zip,
+      recipient_country: 'US',
+    }),
+  });
+
+  let order;
+  try {
+    order = await orderRes.json();
+  } catch (e) {
+    return jsonResponse({ error: 'Handwrytten API error', details: await orderRes.text() }, 500);
+  }
+
+  // If session expired, return helpful error
+  if (order.httpCode === 440 || order.httpCode === 401) {
+    return jsonResponse({
+      error: 'Handwrytten session expired - needs re-authentication',
+      details: order.message,
+      action: 'Login at app.handwrytten.com and refresh session',
+    }, 401);
+  }
+
+  return jsonResponse({
+    success: !order.status || order.status !== 'error',
+    type: 'handwritten_card',
+    order: order,
+    to: to_name,
+    card_id: card_id || 25,
+  });
+}
+
 
 function sanitizePath(str) {
   return str.replace(/[^a-zA-Z0-9\s\-_]/g, '').replace(/\s+/g, '-').toLowerCase().substring(0, 100);
