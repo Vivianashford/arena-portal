@@ -1,0 +1,8 @@
+name = "arena-api"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+account_id = "4752829e3686d2b9b52881b3236ad8fd"
+
+[[r2_buckets]]
+binding = "ARENA_FILES"
+bucket_name = "arena-files"

@@ -64,6 +64,21 @@ export default {
         return await handleDownloadFile(request, env, path);
       }
 
+      // GHL API Proxy - passes requests through to GHL with stored token
+      if (path.startsWith('/api/ghl/')) {
+        return await handleGHLProxy(request, env, path);
+      }
+
+      // Apollo enrichment endpoint
+      if (path === '/api/enrich' && request.method === 'POST') {
+        return await handleEnrich(request, env);
+      }
+
+      // Health check
+      if (path === '/health') {
+        return jsonResponse({ status: 'ok', service: 'arena-api', timestamp: new Date().toISOString() });
+      }
+
       return jsonResponse({ error: 'Not found' }, 404);
     } catch (err) {
       console.error('Worker error:', err);
@@ -280,6 +295,207 @@ async function handleDownloadFile(request, env, path) {
   headers.set('Content-Length', object.size);
 
   return new Response(object.body, { headers });
+}
+
+// ============================================================
+// GHL API PROXY
+// ============================================================
+
+async function handleGHLProxy(request, env, path) {
+  const ghlToken = env.GHL_TOKEN;
+  if (!ghlToken) {
+    return jsonResponse({ error: 'GHL token not configured' }, 500);
+  }
+
+  const ghlPath = path.replace('/api/ghl', '');
+  const url = `${GHL_API}${ghlPath}`;
+
+  const headers = {
+    'Authorization': `Bearer ${ghlToken}`,
+    'Version': GHL_VERSION,
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  };
+
+  const options = { method: request.method, headers };
+
+  if (request.method === 'POST' || request.method === 'PUT' || request.method === 'PATCH' || request.method === 'DELETE') {
+    try {
+      const body = await request.text();
+      if (body) options.body = body;
+    } catch (e) {}
+  }
+
+  // Forward query string
+  const incomingUrl = new URL(request.url);
+  if (incomingUrl.search) {
+    const targetUrl = new URL(url);
+    targetUrl.search = incomingUrl.search;
+    const resp = await fetch(targetUrl.toString(), options);
+    const data = await resp.text();
+    return new Response(data, {
+      status: resp.status,
+      headers: { 'Content-Type': 'application/json', ...CORS_HEADERS }
+    });
+  }
+
+  const resp = await fetch(url, options);
+  const data = await resp.text();
+  return new Response(data, {
+    status: resp.status,
+    headers: { 'Content-Type': 'application/json', ...CORS_HEADERS }
+  });
+}
+
+// ============================================================
+// APOLLO ENRICHMENT
+// ============================================================
+
+const GENERIC_DOMAINS = [
+  'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com',
+  'aol.com', 'icloud.com', 'mail.com', 'protonmail.com',
+  'comcast.net', 'att.net', 'verizon.net', 'cox.net',
+  'sbcglobal.net', 'bellsouth.net', 'charter.net',
+];
+
+async function handleEnrich(request, env) {
+  const apolloKey = env.APOLLO_API_KEY;
+  if (!apolloKey) {
+    return jsonResponse({ error: 'Apollo API key not configured. Add APOLLO_API_KEY as Worker secret.' }, 500);
+  }
+
+  const ghlToken = env.GHL_TOKEN;
+  if (!ghlToken) {
+    return jsonResponse({ error: 'GHL token not configured' }, 500);
+  }
+
+  const { contact_id, email, first_name, last_name, company_name } = await request.json();
+
+  if (!contact_id) {
+    return jsonResponse({ error: 'contact_id is required' }, 400);
+  }
+
+  console.log(`Enriching contact: ${contact_id} (${email})`);
+
+  // 1. Enrich person via Apollo
+  let person = null;
+  try {
+    const matchRes = await fetch('https://api.apollo.io/v1/people/match', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Api-Key': apolloKey },
+      body: JSON.stringify({
+        email: email || undefined,
+        first_name: first_name || undefined,
+        last_name: last_name || undefined,
+        organization_name: company_name || undefined,
+      }),
+    });
+    const matchData = await matchRes.json();
+    if (matchData.person) person = matchData.person;
+  } catch (err) {
+    console.log('Apollo people/match failed:', err.message);
+  }
+
+  // Fallback to search
+  if (!person && first_name && last_name) {
+    try {
+      const searchRes = await fetch('https://api.apollo.io/v1/mixed_people/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Api-Key': apolloKey },
+        body: JSON.stringify({
+          person_titles: ['owner', 'founder', 'ceo', 'president', 'managing partner'],
+          q_person_name: `${first_name} ${last_name}`,
+          q_organization_name: company_name || undefined,
+          per_page: 1,
+        }),
+      });
+      const searchData = await searchRes.json();
+      if (searchData.people && searchData.people.length > 0) {
+        person = searchData.people[0];
+      }
+    } catch (err) {
+      console.log('Apollo people/search failed:', err.message);
+    }
+  }
+
+  // 2. Enrich organization
+  let org = null;
+  if (person && person.organization) {
+    org = person.organization;
+  } else {
+    const domain = email ? email.split('@')[1]?.toLowerCase() : null;
+    if (domain && !GENERIC_DOMAINS.includes(domain)) {
+      try {
+        const orgRes = await fetch('https://api.apollo.io/v1/mixed_companies/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Api-Key': apolloKey },
+          body: JSON.stringify({ q_organization_domains: domain, per_page: 1 }),
+        });
+        const orgData = await orgRes.json();
+        if (orgData.organizations && orgData.organizations.length > 0) {
+          org = orgData.organizations[0];
+        }
+      } catch (err) {
+        console.log('Apollo org enrichment failed:', err.message);
+      }
+    }
+  }
+
+  // 3. Build custom fields
+  const fields = {};
+  if (person) {
+    fields.enriched_title = person.title || '';
+    fields.enriched_linkedin = person.linkedin_url || '';
+    fields.enriched_seniority = person.seniority || '';
+  }
+  if (org) {
+    fields.enriched_company_name = org.name || '';
+    fields.enriched_industry = org.industry || '';
+    fields.enriched_sub_industry = org.subindustry || org.sub_industry || '';
+    fields.enriched_employee_count = org.estimated_num_employees ? String(org.estimated_num_employees) : '';
+    fields.enriched_annual_revenue = org.annual_revenue_printed || org.annual_revenue || '';
+    fields.enriched_founded_year = org.founded_year ? String(org.founded_year) : '';
+    fields.enriched_company_city = org.city || '';
+    fields.enriched_company_state = org.state || '';
+    fields.enriched_website = org.website_url || org.primary_domain || '';
+    fields.enriched_description = org.short_description || '';
+    fields.enriched_keywords = (org.keywords || []).slice(0, 10).join(', ');
+    fields.enriched_logo_url = org.logo_url || '';
+    if (org.founded_year) {
+      fields.enriched_years_in_business = String(new Date().getFullYear() - org.founded_year);
+    }
+    if (org.estimated_num_employees) {
+      const size = org.estimated_num_employees;
+      if (size <= 10) fields.enriched_company_size_label = 'small team';
+      else if (size <= 50) fields.enriched_company_size_label = 'growing team';
+      else if (size <= 200) fields.enriched_company_size_label = 'established operation';
+      else fields.enriched_company_size_label = 'major operation';
+    }
+  }
+  fields.enriched_at = new Date().toISOString();
+  fields.enrichment_status = (person || org) ? 'enriched' : 'not_found';
+
+  // 4. Write to GHL
+  const customFieldsPayload = Object.entries(fields)
+    .filter(([k, v]) => v)
+    .map(([key, value]) => ({ key, value }));
+
+  await ghlRequest('PUT', `/contacts/${contact_id}`, ghlToken, { customFields: customFieldsPayload });
+
+  // 5. Tag as enriched
+  const tag = fields.enrichment_status === 'enriched' ? 'enriched' : 'enrichment_failed';
+  await ghlRequest('POST', `/contacts/${contact_id}/tags`, ghlToken, { tags: [tag] });
+
+  console.log(`Enrichment complete for ${contact_id}: ${fields.enrichment_status}`);
+
+  return jsonResponse({
+    success: true,
+    contact_id,
+    enrichment_status: fields.enrichment_status,
+    fields_written: customFieldsPayload.length,
+    company_found: org ? org.name : null,
+    person_found: person ? `${person.first_name} ${person.last_name}` : null,
+  });
 }
 
 // ============================================================
