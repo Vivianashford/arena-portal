@@ -92,6 +92,149 @@ export default {
         return await handleHandwrytten(request, env);
       }
 
+      // LinkedIn OAuth - authorization redirect
+      if (path === '/api/linkedin/auth' && request.method === 'GET') {
+        const clientId = env.LINKEDIN_CLIENT_ID;
+        const redirectUri = encodeURIComponent('https://arena-api.jean-475.workers.dev/callback');
+        const scope = encodeURIComponent('openid profile email w_member_social r_member_social');
+        const state = crypto.randomUUID();
+        const authUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&state=${state}`;
+        return Response.redirect(authUrl, 302);
+      }
+
+      // LinkedIn OAuth - callback (exchange code for token)
+      if ((path === '/api/linkedin/callback' || path === '/callback') && request.method === 'GET') {
+        return await handleLinkedInCallback(url, env);
+      }
+
+      // LinkedIn API - post comment
+      if (path === '/api/linkedin/comment' && request.method === 'POST') {
+        return await handleLinkedInComment(request, env);
+      }
+
+      // LinkedIn API - create article/newsletter
+      if (path === '/api/linkedin/article' && request.method === 'POST') {
+        return await handleLinkedInArticle(request, env);
+      }
+
+      // LinkedIn API - get profile
+      if (path === '/api/linkedin/profile' && request.method === 'GET') {
+        return await handleLinkedInProfile(env);
+      }
+
+      // LinkedIn API - get recent posts
+      if (path === '/api/linkedin/posts' && request.method === 'GET') {
+        return await handleLinkedInGetPosts(env);
+      }
+
+      // LinkedIn API - list comments on a post
+      if (path === '/api/linkedin/comments' && request.method === 'POST') {
+        return await handleLinkedInListComments(request, env);
+      }
+
+      // LinkedIn API - reply to a specific comment
+      if (path === '/api/linkedin/comment/reply' && request.method === 'POST') {
+        return await handleLinkedInReplyComment(request, env);
+      }
+
+      // LinkedIn API - create post with optional image
+      if (path === '/api/linkedin/post' && request.method === 'POST') {
+        return await handleLinkedInCreatePost(request, env);
+      }
+
+      // LinkedIn delete post
+      if (path.startsWith('/api/linkedin/post/') && request.method === 'DELETE') {
+        const token = await getLinkedInToken(env);
+        if (!token) return jsonResponse({ error: 'No token' }, 401);
+        const postUrn = decodeURIComponent(path.replace('/api/linkedin/post/', ''));
+        const ugcUrn = postUrn.replace('urn:li:share:', 'urn:li:ugcPost:');
+        const res = await fetch(`https://api.linkedin.com/v2/ugcPosts/${encodeURIComponent(ugcUrn)}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'X-Restli-Protocol-Version': '2.0.0',
+          },
+        });
+        let body;
+        try { body = await res.json(); } catch(e) { body = null; }
+        return jsonResponse({ success: res.ok || res.status === 204, status: res.status, urn: ugcUrn, body }, res.ok || res.status === 204 ? 200 : res.status);
+      }
+
+      // LinkedIn API - delete a comment
+      if (path === '/api/linkedin/comment/delete' && request.method === 'POST') {
+        const token = await getLinkedInToken(env);
+        if (!token) return jsonResponse({ error: 'No token' }, 401);
+        const { activityUrn, commentId } = await request.json();
+        if (!activityUrn || !commentId) return jsonResponse({ error: 'activityUrn and commentId required' }, 400);
+        // Get actor URN
+        const profileObj = await env.ARENA_FILES.get('config/linkedin-profile.json');
+        let actor = '';
+        if (profileObj) {
+          const profile = JSON.parse(await profileObj.text());
+          actor = `urn:li:person:${profile.sub}`;
+        }
+        const res = await fetch(
+          `https://api.linkedin.com/v2/socialActions/${encodeURIComponent(activityUrn)}/comments/${commentId}?actor=${encodeURIComponent(actor)}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'X-Restli-Protocol-Version': '2.0.0',
+          },
+        });
+        let body;
+        try { body = await res.json(); } catch(e) { body = null; }
+        return jsonResponse({ success: res.ok || res.status === 204, status: res.status, body }, res.ok || res.status === 204 ? 200 : res.status);
+      }
+
+      // LinkedIn version probe - find working API version
+      if (path === '/api/linkedin/probe' && request.method === 'GET') {
+        const token = await getLinkedInToken(env);
+        if (!token) return jsonResponse({ error: 'No token' }, 401);
+        
+        const profileObj = await env.ARENA_FILES.get('config/linkedin-profile.json');
+        const profile = JSON.parse(await profileObj.text());
+        const authorUrn = `urn:li:person:${profile.sub}`;
+        
+        const versions = ['202501','202412','202411','202410','202409','202408','202407','202406','202405','202404','202403','202402','202401','202312','202311','202310','202309','202306'];
+        const results = [];
+        
+        for (const v of versions) {
+          try {
+            const res = await fetch('https://api.linkedin.com/rest/posts', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'LinkedIn-Version': v,
+                'X-Restli-Protocol-Version': '2.0.0',
+              },
+              body: JSON.stringify({
+                author: authorUrn,
+                commentary: 'version_probe_test',
+                visibility: 'PUBLIC',
+                distribution: { feedDistribution: 'NONE' },
+                lifecycleState: 'DRAFT',
+              }),
+            });
+            const data = await res.json();
+            results.push({ version: v, status: res.status, code: data.code || 'OK', message: (data.message || '').substring(0, 80) });
+            if (res.ok || res.status === 422 || res.status === 400) {
+              // Found a working version (400/422 means version is valid, just bad request data)
+              results[results.length - 1].viable = true;
+            }
+          } catch (e) {
+            results.push({ version: v, error: e.message });
+          }
+        }
+        
+        return jsonResponse({ results, viable: results.filter(r => r.viable) });
+      }
+
+      // Facebook - post to page
+      if (path === '/api/facebook/post' && request.method === 'POST') {
+        return await handleFacebookPost(request, env);
+      }
+
       return jsonResponse({ error: 'Not found' }, 404);
     } catch (err) {
       console.error('Worker error:', err);
@@ -785,6 +928,483 @@ async function handleHandwrytten(request, env) {
   });
 }
 
+
+// ==================== LinkedIn OAuth & API ====================
+
+async function handleLinkedInCallback(url, env) {
+  const code = url.searchParams.get('code');
+  const error = url.searchParams.get('error');
+  
+  if (error) {
+    return new Response(`<h1>LinkedIn Auth Failed</h1><p>${error}: ${url.searchParams.get('error_description')}</p>`, {
+      headers: { 'Content-Type': 'text/html' }
+    });
+  }
+
+  if (!code) {
+    return jsonResponse({ error: 'No authorization code received' }, 400);
+  }
+
+  // Exchange code for access token
+  const tokenRes = await fetch('https://www.linkedin.com/oauth/v2/accessToken', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'authorization_code',
+      code: code,
+      redirect_uri: 'https://arena-api.jean-475.workers.dev/callback',
+      client_id: env.LINKEDIN_CLIENT_ID,
+      client_secret: env.LINKEDIN_CLIENT_SECRET,
+    }),
+  });
+
+  const tokenData = await tokenRes.json();
+  
+  if (tokenData.error) {
+    return new Response(`<h1>Token Exchange Failed</h1><pre>${JSON.stringify(tokenData, null, 2)}</pre>`, {
+      headers: { 'Content-Type': 'text/html' }
+    });
+  }
+
+  // Store token in KV or R2
+  const tokenObj = {
+    access_token: tokenData.access_token,
+    expires_in: tokenData.expires_in,
+    refresh_token: tokenData.refresh_token,
+    refresh_token_expires_in: tokenData.refresh_token_expires_in,
+    created_at: new Date().toISOString(),
+    expires_at: new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString(),
+  };
+
+  // Store in R2 for persistence
+  await env.ARENA_FILES.put('config/linkedin-token.json', JSON.stringify(tokenObj, null, 2));
+
+  // Get profile to confirm
+  const profileRes = await fetch('https://api.linkedin.com/v2/userinfo', {
+    headers: { 'Authorization': `Bearer ${tokenData.access_token}` },
+  });
+  const profile = await profileRes.json();
+
+  // Store profile info
+  await env.ARENA_FILES.put('config/linkedin-profile.json', JSON.stringify(profile, null, 2));
+
+  return new Response(`
+    <html><body style="font-family:sans-serif;background:#0a0a0a;color:#e8e4df;padding:40px;text-align:center;">
+    <h1 style="color:#C9A84C;">LinkedIn Connected!</h1>
+    <p>Authorized as: <strong>${profile.name || profile.given_name + ' ' + profile.family_name}</strong></p>
+    <p>Sub: ${profile.sub}</p>
+    <p>Token expires: ${tokenObj.expires_at}</p>
+    <p style="color:#888;">You can close this window. Vivian now has LinkedIn API access.</p>
+    </body></html>
+  `, { headers: { 'Content-Type': 'text/html' } });
+}
+
+async function getLinkedInToken(env) {
+  const tokenObj = await env.ARENA_FILES.get('config/linkedin-token.json');
+  if (!tokenObj) return null;
+  const token = JSON.parse(await tokenObj.text());
+  
+  // Check if expired
+  if (new Date(token.expires_at) < new Date()) {
+    // Try refresh
+    if (token.refresh_token) {
+      const refreshRes = await fetch('https://www.linkedin.com/oauth/v2/accessToken', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          grant_type: 'refresh_token',
+          refresh_token: token.refresh_token,
+          client_id: env.LINKEDIN_CLIENT_ID,
+          client_secret: env.LINKEDIN_CLIENT_SECRET,
+        }),
+      });
+      const refreshData = await refreshRes.json();
+      if (refreshData.access_token) {
+        const newToken = {
+          ...token,
+          access_token: refreshData.access_token,
+          expires_in: refreshData.expires_in,
+          refresh_token: refreshData.refresh_token || token.refresh_token,
+          created_at: new Date().toISOString(),
+          expires_at: new Date(Date.now() + (refreshData.expires_in * 1000)).toISOString(),
+        };
+        await env.ARENA_FILES.put('config/linkedin-token.json', JSON.stringify(newToken, null, 2));
+        return newToken.access_token;
+      }
+    }
+    return null; // Token expired, no refresh available
+  }
+  
+  return token.access_token;
+}
+
+async function handleLinkedInProfile(env) {
+  const token = await getLinkedInToken(env);
+  if (!token) return jsonResponse({ error: 'No LinkedIn token. Authorize at /api/linkedin/auth' }, 401);
+
+  const res = await fetch('https://api.linkedin.com/v2/userinfo', {
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  const profile = await res.json();
+  return jsonResponse(profile);
+}
+
+async function handleLinkedInListComments(request, env) {
+  const token = await getLinkedInToken(env);
+  if (!token) return jsonResponse({ error: 'No LinkedIn token. Authorize at /api/linkedin/auth' }, 401);
+
+  const { postUrn, count } = await request.json();
+  if (!postUrn) return jsonResponse({ error: 'postUrn required' }, 400);
+
+  // Convert share URN to activity URN for the socialActions API
+  const activityUrn = postUrn.replace('urn:li:share:', 'urn:li:activity:');
+  const limit = count || 20;
+
+  // Try both URN formats
+  const urns = [activityUrn, postUrn];
+  let lastData = {};
+  let lastOk = false;
+
+  for (const urn of urns) {
+    const res = await fetch(
+      `https://api.linkedin.com/v2/socialActions/${encodeURIComponent(urn)}/comments?count=${limit}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'X-Restli-Protocol-Version': '2.0.0',
+      },
+    });
+
+    const data = await res.json();
+    if (res.ok && data.elements && data.elements.length > 0) {
+      const comments = data.elements.map(c => ({
+        id: c.id || c['$URN'],
+        urn: c['$URN'],
+        text: c.message ? c.message.text : '',
+        actor: c.actor,
+        created: c.created ? c.created.time : null,
+        likes: c.likesSummary ? c.likesSummary.totalLikes : 0,
+      }));
+      return jsonResponse({ success: true, total: data.paging ? data.paging.total : comments.length, comments, urnUsed: urn }, 200);
+    }
+    lastData = data;
+    lastOk = res.ok;
+  }
+
+  return jsonResponse({ success: lastOk, total: 0, comments: [], raw: lastData }, lastOk ? 200 : 400);
+}
+
+async function handleLinkedInReplyComment(request, env) {
+  const token = await getLinkedInToken(env);
+  if (!token) return jsonResponse({ error: 'No LinkedIn token. Authorize at /api/linkedin/auth' }, 401);
+
+  const { postUrn, parentCommentUrn, comment } = await request.json();
+  if (!postUrn || !parentCommentUrn || !comment) {
+    return jsonResponse({ error: 'postUrn, parentCommentUrn, and comment required' }, 400);
+  }
+
+  // Get actor
+  const profileObj = await env.ARENA_FILES.get('config/linkedin-profile.json');
+  let actor = '';
+  if (profileObj) {
+    const profile = JSON.parse(await profileObj.text());
+    actor = `urn:li:person:${profile.sub}`;
+  }
+
+  // Convert share URN to activity URN
+  const activityUrn = postUrn.replace('urn:li:share:', 'urn:li:activity:');
+
+  const res = await fetch(
+    `https://api.linkedin.com/v2/socialActions/${encodeURIComponent(activityUrn)}/comments`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      'X-Restli-Protocol-Version': '2.0.0',
+    },
+    body: JSON.stringify({
+      actor: actor,
+      message: { text: comment },
+      parentComment: parentCommentUrn,
+    }),
+  });
+
+  const data = await res.json();
+  return jsonResponse({ success: res.ok, status: res.status, data }, res.ok ? 200 : res.status);
+}
+
+async function handleLinkedInComment(request, env) {
+  const token = await getLinkedInToken(env);
+  if (!token) return jsonResponse({ error: 'No LinkedIn token. Authorize at /api/linkedin/auth' }, 401);
+
+  const { postUrn, comment, authorUrn } = await request.json();
+  
+  if (!postUrn || !comment) {
+    return jsonResponse({ error: 'postUrn and comment required' }, 400);
+  }
+
+  // Get author URN from stored profile if not provided
+  let actor = authorUrn;
+  if (!actor) {
+    const profileObj = await env.ARENA_FILES.get('config/linkedin-profile.json');
+    if (profileObj) {
+      const profile = JSON.parse(await profileObj.text());
+      actor = `urn:li:person:${profile.sub}`;
+    }
+  }
+
+  // Convert share URN to activity URN for socialActions API
+  const activityUrn = postUrn.replace('urn:li:share:', 'urn:li:activity:');
+
+  const res = await fetch(`https://api.linkedin.com/v2/socialActions/${encodeURIComponent(activityUrn)}/comments`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      'X-Restli-Protocol-Version': '2.0.0',
+    },
+    body: JSON.stringify({
+      actor: actor,
+      message: { text: comment },
+    }),
+  });
+
+  const data = await res.json();
+  return jsonResponse({ success: res.ok, status: res.status, data }, res.ok ? 200 : res.status);
+}
+
+async function handleLinkedInArticle(request, env) {
+  const token = await getLinkedInToken(env);
+  if (!token) return jsonResponse({ error: 'No LinkedIn token. Authorize at /api/linkedin/auth' }, 401);
+
+  const { title, description, url, commentary, imageUrn } = await request.json();
+  
+  if (!title || !url) {
+    return jsonResponse({ error: 'title and url required' }, 400);
+  }
+
+  const profileObj = await env.ARENA_FILES.get('config/linkedin-profile.json');
+  let authorUrn = '';
+  if (profileObj) {
+    const profile = JSON.parse(await profileObj.text());
+    authorUrn = `urn:li:person:${profile.sub}`;
+  }
+
+  const articleContent = {
+    source: url,
+    title: title,
+  };
+  if (description) articleContent.description = description;
+  if (imageUrn) articleContent.thumbnail = imageUrn;
+
+  const res = await fetch('https://api.linkedin.com/rest/posts', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      'LinkedIn-Version': '202503',
+      'X-Restli-Protocol-Version': '2.0.0',
+    },
+    body: JSON.stringify({
+      author: authorUrn,
+      commentary: commentary || title,
+      visibility: 'PUBLIC',
+      distribution: {
+        feedDistribution: 'MAIN_FEED',
+        targetEntities: [],
+        thirdPartyDistributionChannels: [],
+      },
+      content: { article: articleContent },
+      lifecycleState: 'PUBLISHED',
+      isReshareDisabledByAuthor: false,
+    }),
+  });
+
+  const postId = res.headers.get('x-restli-id');
+  const data = res.ok ? { id: postId } : await res.json();
+  return jsonResponse({ success: res.ok, status: res.status, data }, res.ok ? 201 : res.status);
+}
+
+async function handleLinkedInGetPosts(env) {
+  const token = await getLinkedInToken(env);
+  if (!token) return jsonResponse({ error: 'No LinkedIn token' }, 401);
+
+  const profileObj = await env.ARENA_FILES.get('config/linkedin-profile.json');
+  const profile = JSON.parse(await profileObj.text());
+  const authorUrn = `urn:li:person:${profile.sub}`;
+
+  // Try v2 UGC posts API (no version header needed)
+  const res = await fetch(`https://api.linkedin.com/v2/ugcPosts?q=authors&authors=List(${encodeURIComponent(authorUrn)})&count=10`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'X-Restli-Protocol-Version': '2.0.0',
+    },
+  });
+
+  const data = await res.json();
+  return jsonResponse({ success: res.ok, status: res.status, authorUrn, raw: data, posts: data.elements || [], total: data.paging?.total }, res.ok ? 200 : res.status);
+}
+
+async function handleLinkedInCreatePost(request, env) {
+  const token = await getLinkedInToken(env);
+  if (!token) return jsonResponse({ error: 'No LinkedIn token' }, 401);
+
+  const profileObj = await env.ARENA_FILES.get('config/linkedin-profile.json');
+  const profile = JSON.parse(await profileObj.text());
+  const authorUrn = `urn:li:person:${profile.sub}`;
+
+  const { text, imageUrl, imageData } = await request.json();
+  if (!text) return jsonResponse({ error: 'text required' }, 400);
+
+  let mediaAsset = null;
+
+  // If image provided, register upload via v2 API
+  if (imageData || imageUrl) {
+    // Step 1: Register image upload
+    const regRes = await fetch('https://api.linkedin.com/v2/assets?action=registerUpload', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        registerUploadRequest: {
+          recipes: ['urn:li:digitalmediaRecipe:feedshare-image'],
+          owner: authorUrn,
+          serviceRelationships: [{
+            relationshipType: 'OWNER',
+            identifier: 'urn:li:userGeneratedContent',
+          }],
+        },
+      }),
+    });
+
+    const regData = await regRes.json();
+    if (!regRes.ok) {
+      return jsonResponse({ error: 'Image upload registration failed', details: regData }, regRes.status);
+    }
+
+    const uploadUrl = regData.value.uploadMechanism['com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest'].uploadUrl;
+    mediaAsset = regData.value.asset;
+
+    // Step 2: Upload the image binary
+    let imageBytes;
+    if (imageData) {
+      imageBytes = Uint8Array.from(atob(imageData), c => c.charCodeAt(0));
+    } else if (imageUrl) {
+      const imgRes = await fetch(imageUrl);
+      imageBytes = new Uint8Array(await imgRes.arrayBuffer());
+    }
+
+    const uploadRes = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/octet-stream',
+      },
+      body: imageBytes,
+    });
+
+    if (!uploadRes.ok) {
+      return jsonResponse({ error: 'Image upload failed', status: uploadRes.status, details: await uploadRes.text() }, 400);
+    }
+  }
+
+  // Build UGC post body
+  const shareContent = {
+    shareCommentary: { text: text },
+    shareMediaCategory: mediaAsset ? 'IMAGE' : 'NONE',
+  };
+
+  if (mediaAsset) {
+    shareContent.media = [{
+      status: 'READY',
+      media: mediaAsset,
+    }];
+  }
+
+  const ugcBody = {
+    author: authorUrn,
+    lifecycleState: 'PUBLISHED',
+    specificContent: {
+      'com.linkedin.ugc.ShareContent': shareContent,
+    },
+    visibility: {
+      'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC',
+    },
+  };
+
+  const res = await fetch('https://api.linkedin.com/v2/ugcPosts', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      'X-Restli-Protocol-Version': '2.0.0',
+    },
+    body: JSON.stringify(ugcBody),
+  });
+
+  const postId = res.headers.get('x-linkedin-id') || res.headers.get('x-restli-id');
+  let resBody;
+  try {
+    resBody = await res.json();
+  } catch(e) {
+    resBody = { postId };
+  }
+  
+  return jsonResponse({ 
+    success: res.ok, 
+    status: res.status, 
+    postId: postId || resBody.id,
+    postUrn: postId || resBody.id,
+    data: resBody 
+  }, res.ok ? 201 : res.status);
+}
+
+
+async function handleFacebookPost(request, env) {
+  const pageToken = env.FB_PAGE_TOKEN;
+  const pageId = env.FB_PAGE_ID || '103908865130039';
+  
+  if (!pageToken) return jsonResponse({ error: 'No Facebook page token configured' }, 401);
+
+  const { text, imageData, imageUrl, link } = await request.json();
+  if (!text) return jsonResponse({ error: 'text required' }, 400);
+
+  let endpoint = `https://graph.facebook.com/v19.0/${pageId}/feed`;
+  let body = new URLSearchParams();
+  body.append('message', text);
+  body.append('access_token', pageToken);
+  if (link) body.append('link', link);
+
+  // If image, use /photos endpoint instead
+  if (imageData || imageUrl) {
+    endpoint = `https://graph.facebook.com/v19.0/${pageId}/photos`;
+    body = new FormData();
+    body.append('message', text);
+    body.append('access_token', pageToken);
+    
+    if (imageData) {
+      const bytes = Uint8Array.from(atob(imageData), c => c.charCodeAt(0));
+      body.append('source', new Blob([bytes], { type: 'image/png' }), 'graphic.png');
+    } else if (imageUrl) {
+      body.append('url', imageUrl);
+    }
+  }
+
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    body: body,
+  });
+
+  const data = await res.json();
+  return jsonResponse({
+    success: res.ok,
+    status: res.status,
+    postId: data.id || data.post_id,
+    data,
+  }, res.ok ? 201 : res.status);
+}
 
 function sanitizePath(str) {
   return str.replace(/[^a-zA-Z0-9\s\-_]/g, '').replace(/\s+/g, '-').toLowerCase().substring(0, 100);
