@@ -235,6 +235,19 @@ export default {
         return await handleFacebookPost(request, env);
       }
 
+      // Facebook - delete a post
+      if (path.startsWith('/api/facebook/post/') && request.method === 'DELETE') {
+        const pageToken = env.FB_PAGE_TOKEN;
+        if (!pageToken) return jsonResponse({ error: 'No Facebook page token configured' }, 401);
+        const postId = decodeURIComponent(path.replace('/api/facebook/post/', ''));
+        const res = await fetch(`https://graph.facebook.com/v19.0/${postId}?access_token=${pageToken}`, {
+          method: 'DELETE',
+        });
+        let data;
+        try { data = await res.json(); } catch(e) { data = null; }
+        return jsonResponse({ success: res.ok, status: res.status, postId, data }, res.ok ? 200 : res.status);
+      }
+
       return jsonResponse({ error: 'Not found' }, 404);
     } catch (err) {
       console.error('Worker error:', err);
